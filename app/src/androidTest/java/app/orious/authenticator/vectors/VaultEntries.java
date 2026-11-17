@@ -1,1 +1,1 @@
-../../../../../../test/java/com/beemdevelopment/aegis/vectors/VaultEntries.java
+../../../../../../test/java/app/orious/authenticator/vectors/VaultEntries.java
