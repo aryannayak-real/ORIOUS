@@ -67,6 +67,15 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            storeFile file(System.getenv("ORIOUS_STORE_FILE") ?: "${rootProject.projectDir}/keystore/orious-release.jks")
+            storePassword System.getenv("ORIOUS_STORE_PASSWORD")
+            keyAlias System.getenv("ORIOUS_KEY_ALIAS") ?: "orious"
+            keyPassword System.getenv("ORIOUS_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix ".debug"
@@ -87,6 +96,7 @@ android {
             buildConfigField("String", "FILE_PROVIDER_AUTHORITY", "\"${fileProviderAuthority}\"")
             resValue "bool", "pref_secure_screen_default", "true"
 
+            signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
