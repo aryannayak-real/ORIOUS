@@ -52,7 +52,7 @@ public class QrCodeAnalyzerTest {
         });
 
         FakeImageProxy imgProxy;
-        try (InputStream inStream = getClass().getResourceAsStream(fileName);
+        try (InputStream inStream = getClass().getResourceAsStream("/com/beemdevelopment/aegis/helpers/" + fileName);
              GZIPInputStream zipStream = new GZIPInputStream(inStream)) {
             imgProxy = new FakeImageProxy(IOUtils.readAll(zipStream), width, height, rowStride);
         } catch (IOException e) {

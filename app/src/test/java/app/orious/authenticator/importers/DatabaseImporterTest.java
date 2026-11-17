@@ -546,7 +546,7 @@ public class DatabaseImporterTest {
     }
 
     private InputStream openResource(String name) {
-        return getClass().getResourceAsStream(name);
+        return getClass().getResourceAsStream("/com/beemdevelopment/aegis/importers/" + name);
     }
 
     private interface Decryptor {
