@@ -214,16 +214,16 @@
         <item name="widgetLayout">@layout/view_preference_switch</item>
     </style>
 
-    <style name="Widget.Aegis.EntryCardView" parent="Widget.Material3.CardView.Elevated">
+    <style name="Widget.Aegis.EntryCardView" parent="Widget.Material3.CardView.Filled">
         <item name="materialThemeOverlay">@style/ThemeOverlay.Aegis.EntryCardView</item>
     </style>
 
-    <style name="Widget.Aegis.CompactEntryCardView" parent="Widget.Material3.CardView.Elevated">
+    <style name="Widget.Aegis.CompactEntryCardView" parent="Widget.Material3.CardView.Filled">
         <item name="materialThemeOverlay">@style/ThemeOverlay.Aegis.CompactEntryCardView</item>
     </style>
 
     <style name="ThemeOverlay.Aegis.EntryCardView" parent="">
-        <item name="colorSurfaceContainerLow">?attr/colorSurfaceContainer</item>
+        <item name="colorSurfaceContainerLow">?attr/colorSurface</item>
     </style>
 
     <style name="ThemeOverlay.Aegis.CompactEntryCardView" parent="">
