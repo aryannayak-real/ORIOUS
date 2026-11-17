@@ -42,15 +42,12 @@ jobs:
           profile: pixel_3a
           heap-size: 512M
           ram-size: 4096M
-          emulator-options: -memory 4096 -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -memory 4096 -no-window -gpu swiftshader -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           disk-size: 8G
           script: |
             mkdir -p artifacts/report
-            adb logcat -c
-            adb logcat -G 16M && adb logcat -g
             ./gradlew connectedCheck || touch tests_failing
-            adb logcat -d > artifacts/logcat.txt
             cp -r app/build/reports/androidTests/connected/* artifacts/report/
             if adb shell '[ -e /sdcard/Pictures/screenshots ]'; then adb pull /sdcard/Pictures/screenshots artifacts/; fi
             test ! -f tests_failing
