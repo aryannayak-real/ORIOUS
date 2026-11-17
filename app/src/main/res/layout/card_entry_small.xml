@@ -11,9 +11,9 @@
     android:elevation="0dp"
     style="@style/Widget.Aegis.EntryCardView"
     app:cardElevation="0dp"
-    app:cardBackgroundColor="?attr/colorSurface"
+    app:cardBackgroundColor="@android:color/transparent"
     app:strokeWidth="0dp"
-    app:checkedIcon="@null">
+    app:checkedIcon="@null" app:cardCornerRadius="0dp">
 
     <LinearLayout
         android:id="@+id/rlCardEntry"
@@ -72,8 +72,7 @@
             <RelativeLayout
                 android:id="@+id/description"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignStart="@id/profile_codes_layout">
+                android:layout_height="wrap_content" android:layout_below="@id/profile_codes_layout" android:layout_marginTop="6dp">
 
                 <TextView
                     android:id="@+id/profile_issuer"
@@ -84,7 +83,7 @@
                     android:maxLines="1"
                     android:text="@string/issuer"
                     android:textSize="12sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"  android:textColor="?attr/colorOnSurface"/>
 
                 <TextView
                     android:id="@+id/profile_account_name"
@@ -95,7 +94,7 @@
                     android:includeFontPadding="false"
                     android:maxLines="1"
                     android:textSize="12sp"
-                    tools:text=" - AccountName" />
+                    tools:text=" - AccountName"  android:textColor="?attr/colorOnSurfaceVariant"/>
 
             </RelativeLayout>
 
@@ -115,7 +114,6 @@
                 android:id="@+id/profile_codes_layout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_below="@id/description"
                 android:orientation="vertical">
 
                 <TextView
@@ -129,7 +127,7 @@
                     android:fallbackLineSpacing="false"
                     android:textColor="?attr/colorCode"
                     android:textSize="23sp"
-                    android:textStyle="normal"
+                    android:textStyle="bold"
                     tools:text="012 345" />
 
                 <TextView

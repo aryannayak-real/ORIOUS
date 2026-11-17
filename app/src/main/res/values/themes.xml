@@ -160,9 +160,9 @@
         <item name="colorSurfaceContainerLowest">#000000</item>
         <item name="colorSurfaceDim">#000000</item>
         <item name="colorSurfaceBright">#000000</item>
-        <item name="colorCode">@android:color/white</item>
-        <item name="colorCodeHidden">#2F2F2F</item>
-        <item name="colorProgressbar">@android:color/white</item>
+        <item name="colorCode">?attr/colorPrimary</item>
+        <item name="colorCodeHidden">#35332E</item>
+        <item name="colorProgressbar">?attr/colorCode</item>
     </style>
 
     <style name="ThemeOverlay.Aegis.Dynamic.Dark" parent="ThemeOverlay.Material3.DynamicColors.Dark">
@@ -181,9 +181,9 @@
         <item name="colorSurfaceContainerLowest">#000000</item>
         <item name="colorSurfaceDim">#000000</item>
         <item name="colorSurfaceBright">#000000</item>
-        <item name="colorCode">@android:color/white</item>
-        <item name="colorCodeHidden">#2F2F2F</item>
-        <item name="colorProgressbar">@android:color/white</item>
+        <item name="colorCode">?attr/colorPrimary</item>
+        <item name="colorCodeHidden">#35332E</item>
+        <item name="colorProgressbar">?attr/colorCode</item>
     </style>
 
     <style name="Theme.Aegis.Light" parent="Base.Theme.Aegis.Light">
@@ -235,7 +235,7 @@
     </style>
 
     <style name="ThemeOverlay.Aegis.ErrorCardView" parent="">
-        <item name="colorSurfaceContainerHighest">?attr/colorErrorContainer</item>
+        <item name="colorSurfaceContainerHighest">?attr/colorSurface</item>
     </style>
 
     <style name="ThemeOverlay.Aegis.ActionMode" parent="">

@@ -1,13 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.google.android.material.chip.Chip
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     style="@style/Widget.Material3.Chip.Filter"
     android:layout_width="wrap_content"
-    android:layout_height="36dp"
-    android:minHeight="36dp"
+    android:layout_height="38dp"
+    android:minHeight="38dp"
     android:minWidth="0dp"
-    android:paddingStart="12dp"
-    android:paddingEnd="12dp"
+    android:paddingStart="13dp"
+    android:paddingEnd="13dp"
+    android:fontFamily="sans-serif-medium"
     android:includeFontPadding="false"
     android:singleLine="true"
-    android:textSize="13sp" />
+    android:textSize="13sp"
+    app:chipCornerRadius="10dp"
+    app:chipStrokeWidth="1dp"
+    app:chipStrokeColor="?attr/colorOutlineVariant" />
