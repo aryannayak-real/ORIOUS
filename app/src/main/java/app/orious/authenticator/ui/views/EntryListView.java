@@ -65,7 +65,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-public class EntryListView extends Fragment implements EntryAdapter.Listener, PasswordEntryAdapter.Listener {
+public class EntryListView extends Fragment implements EntryAdapter.Listener {
     private EntryAdapter _adapter;
     private Listener _listener;
     private SimpleItemTouchHelperCallback _touchCallback;
