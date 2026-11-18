@@ -326,7 +326,6 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
         }
     }
 
-    @Override
     public void onPasswordEntryClick(PasswordEntry entry) {
         if (_listener != null) {
             _listener.onPasswordEntryClick(entry);

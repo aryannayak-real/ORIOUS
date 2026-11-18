@@ -309,6 +309,14 @@ public class VaultRepository {
         return _vault.getPasswordEntries().getValues();
     }
 
+    public java.util.List<String> getUnifiedOrder() {
+        return _vault.getUnifiedOrder();
+    }
+
+    public void moveUnifiedEntry(String firstId, String secondId) {
+        _vault.moveUnifiedEntry(firstId, secondId);
+    }
+
     public void addGroup(VaultGroup group) {
         _vault.getGroups().add(group);
     }
