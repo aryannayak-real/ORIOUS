@@ -624,4 +624,37 @@
         <item quantity="one">%d item selected</item>
         <item quantity="other">%d items selected</item>
     </plurals>
+    <string name="password_details_edit">Edit</string>
+    <string name="password_details_reveal">Reveal</string>
+    <string name="password_details_hide">Hide</string>
+    <string name="password_details_delete_title">Delete password?</string>
+    <string name="password_details_delete_message">This password entry will be permanently deleted.</string>
+    <string name="password_entry_add_title">Add Password</string>
+    <string name="password_entry_edit_title">Edit Password</string>
+    <string name="password_entry_information">ENTRY INFORMATION</string>
+    <string name="password_entry_name">Name</string>
+    <string name="password_entry_username">Username / Email</string>
+    <string name="password_entry_password">Password</string>
+    <string name="password_entry_additional_information">ADDITIONAL INFORMATION</string>
+    <string name="password_entry_website">Website URL (optional)</string>
+    <string name="password_entry_notes">Notes (optional)</string>
+    <string name="password_entry_required">This field is required</string>
+    <string name="password_entry_not_found">Password entry could not be found</string>
+
+    <string name="password_generator_title">Password Generator</string>
+    <string name="password_generator_length">Password length</string>
+    <string name="password_generator_length_value">%1$d characters</string>
+    <string name="password_generator_character_types">Character types</string>
+    <string name="password_generator_uppercase">Uppercase letters (A–Z)</string>
+    <string name="password_generator_lowercase">Lowercase letters (a–z)</string>
+    <string name="password_generator_numbers">Numbers (0–9)</string>
+    <string name="password_generator_symbols">Symbols (!@#$…)</string>
+    <string name="password_generator_exclude_ambiguous">Exclude ambiguous characters (O, 0, I, l)</string>
+    <string name="password_generator_preview_label">Generated password</string>
+    <string name="password_generator_regenerate">Regenerate</string>
+    <string name="password_generator_use">Use password</string>
+    <string name="password_generator_invalid_options">Select character types and choose a sufficient length.</string>
+    <string name="password_generator_tap_regenerate">Tap Regenerate to create a new password.</string>
+    <string name="password_entry_generate">Generate</string>
+
 </resources>

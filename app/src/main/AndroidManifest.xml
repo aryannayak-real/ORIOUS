@@ -71,6 +71,13 @@
             android:label="@string/title_activity_scan_qr"
             android:screenOrientation="portrait" />
         <activity
+            android:name=".ui.EditPasswordActivity"
+            android:label="@string/password_entry_add_title"
+            android:exported="false" />
+        <activity
+            android:name=".ui.PasswordDetailsActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.EditEntryActivity"
             android:label="@string/title_activity_edit_entry" />
         <activity

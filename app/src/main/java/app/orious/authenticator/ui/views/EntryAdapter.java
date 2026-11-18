@@ -27,6 +27,7 @@ import app.orious.authenticator.SortCategory;
 import app.orious.authenticator.ViewMode;
 import app.orious.authenticator.helpers.ItemTouchHelperAdapter;
 import app.orious.authenticator.helpers.comparators.FavoriteComparator;
+import app.orious.authenticator.passwords.PasswordEntry;
 import app.orious.authenticator.otp.HotpInfo;
 import app.orious.authenticator.otp.OtpInfo;
 import app.orious.authenticator.otp.OtpInfoException;
@@ -53,6 +54,8 @@ import java.util.UUID;
 public class EntryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> implements ItemTouchHelperAdapter {
     private EntryListView _view;
     private EntryList _entryList;
+    private List<PasswordEntry> _passwordEntries = new ArrayList<>();
+    private List<String> _unifiedOrder = new ArrayList<>();
     private List<VaultEntry> _selectedEntries;
     private Collection<VaultGroup> _groups;
     private Map<UUID, Integer> _usageCounts;
@@ -162,11 +165,22 @@ public class EntryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
     }
 
     public VaultEntry getEntryAtPosition(int position) {
-        return _entryList.getShownEntries().get(_entryList.translateEntryPosToIndex(position));
+        UnifiedEntry unified = getUnifiedEntryAtPosition(position);
+        return unified != null && unified.isOtp() ? unified.getOtpEntry() : null;
     }
 
     public int getEntryPosition(VaultEntry entry) {
-        return _entryList.translateEntryIndexToPos(_entryList.getShownEntries().indexOf(entry));
+        if (entry == null) {
+            return NO_POSITION;
+        }
+        List<UnifiedEntry> unifiedEntries = buildUnifiedEntries();
+        for (int i = 0; i < unifiedEntries.size(); i++) {
+            UnifiedEntry unified = unifiedEntries.get(i);
+            if (unified.isOtp() && unified.getOtpEntry() == entry) {
+                return i + (_entryList.isErrorCardShown() ? 1 : 0);
+            }
+        }
+        return NO_POSITION;
     }
 
     public void setEntries(List<VaultEntry> entries) {
@@ -183,7 +197,24 @@ public class EntryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
         ));
     }
 
+    public void setUnifiedOrder(Collection<String> order) {
+        _unifiedOrder.clear();
+        if (order != null) {
+            _unifiedOrder.addAll(order);
+        }
+        notifyDataSetChanged();
+    }
+
+    public void setPasswordEntries(Collection<PasswordEntry> entries) {
+        _passwordEntries.clear();
+        if (entries != null) {
+            _passwordEntries.addAll(entries);
+        }
+        notifyDataSetChanged();
+    }
+
     public void clearEntries() {
+        _passwordEntries.clear();
         replaceEntryList(new EntryList());
     }
 
@@ -320,6 +351,58 @@ public class EntryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
         Collections.sort(entries, favoriteComparator);
     }
 
+
+    private List<UnifiedEntry> buildUnifiedEntries() {
+        List<UnifiedEntry> result = new ArrayList<>();
+
+        for (VaultEntry entry : _entryList.getShownEntries()) {
+            result.add(UnifiedEntry.otp(entry));
+        }
+
+        for (PasswordEntry entry : _passwordEntries) {
+            if (_searchFilter == null
+                    || entry.getName().toLowerCase().contains(_searchFilter)) {
+                result.add(UnifiedEntry.password(entry));
+            }
+        }
+
+        if (_sortCategory == SortCategory.CUSTOM) {
+            result.sort(Comparator.comparingInt(entry -> {
+                String id = (entry.isOtp() ? "O:" : "P:") + entry.getUUID();
+                int index = _unifiedOrder.indexOf(id);
+                return index < 0 ? Integer.MAX_VALUE : index;
+            }));
+            return result;
+        }
+
+        result.sort((first, second) -> {
+            if (first.isOtp() && second.isOtp()) {
+                Comparator<VaultEntry> comparator = _sortCategory.getComparator();
+                if (comparator != null) {
+                    return comparator.compare(first.getOtpEntry(), second.getOtpEntry());
+                }
+                return 0;
+            }
+
+            if (!first.isOtp() && !second.isOtp()) {
+                int comparison = String.CASE_INSENSITIVE_ORDER.compare(
+                        first.getName(), second.getName());
+                return (_sortCategory == SortCategory.ACCOUNT_REVERSED
+                        || _sortCategory == SortCategory.ISSUER_REVERSED)
+                        ? -comparison : comparison;
+            }
+
+            if (_sortCategory == SortCategory.USAGE_COUNT
+                    || _sortCategory == SortCategory.LAST_USED) {
+                return first.isOtp() ? -1 : 1;
+            }
+
+            return first.isOtp() ? -1 : 1;
+        });
+
+        return result;
+    }
+
     private boolean isEntryDraggable(VaultEntry entry) {
         return entry != null
                 && isDragAndDropAllowed()
@@ -353,53 +436,60 @@ public class EntryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
 
     @Override
     public void onItemDrop(int position) {
-        // moving entries is not allowed when a filter is applied
-        // footer cant be moved, nor can items be moved below it
-        if (!_groupFilter.isEmpty() || _entryList.isPositionFooter(position) || _entryList.isPositionErrorCard(position)) {
+        if (!_groupFilter.isEmpty()) {
             return;
         }
-
-        int index = _entryList.translateEntryPosToIndex(position);
-        _view.onEntryDrop(_entryList.getShownEntries().get(index));
+        _view.onUnifiedEntryDrop();
     }
 
     @Override
     public void onItemMove(int firstPosition, int secondPosition) {
-        // Moving entries is not allowed when a filter is applied. The footer can't be
-        // moved, nor can items be moved below it
-        if (!_groupFilter.isEmpty()
-                || _entryList.isPositionFooter(firstPosition) || _entryList.isPositionFooter(secondPosition)
-                || _entryList.isPositionErrorCard(firstPosition) || _entryList.isPositionErrorCard(secondPosition)) {
+        if (!_groupFilter.isEmpty()) {
             return;
         }
 
-        // Notify the vault about the entry position change first
-        int firstIndex = _entryList.translateEntryPosToIndex(firstPosition);
-        int secondIndex = _entryList.translateEntryPosToIndex(secondPosition);
-        VaultEntry firstEntry = _entryList.getShownEntries().get(firstIndex);
-        VaultEntry secondEntry = _entryList.getShownEntries().get(secondIndex);
-        _view.onEntryMove(firstEntry, secondEntry);
+        UnifiedEntry first = getUnifiedEntryAtPosition(firstPosition);
+        UnifiedEntry second = getUnifiedEntryAtPosition(secondPosition);
+        if (first == null || second == null) {
+            return;
+        }
 
-        // Then update the visual end
-        List<VaultEntry> newEntries = new ArrayList<>(_entryList.getEntries());
-        CollectionUtils.move(newEntries, newEntries.indexOf(firstEntry), newEntries.indexOf(secondEntry));
-        replaceEntryList(new EntryList(
-                newEntries,
-                calculateShownEntries(newEntries),
-                _entryList.getErrorCardInfo()
-        ));
+        String firstId = (first.isOtp() ? "O:" : "P:") + first.getUUID();
+        String secondId = (second.isOtp() ? "O:" : "P:") + second.getUUID();
+
+        _unifiedOrder.remove(firstId);
+        int target = _unifiedOrder.indexOf(secondId);
+        if (target < 0) {
+            _unifiedOrder.add(secondId);
+            target = _unifiedOrder.size() - 1;
+        }
+        _unifiedOrder.add(target, firstId);
+
+        _view.onUnifiedEntryMove(firstId, secondId);
+        notifyItemMoved(firstPosition, secondPosition);
+    }
+
+
+    private UnifiedEntry getUnifiedEntryAtPosition(int position) {
+        if (_entryList.isErrorCardShown()) {
+            position--;
+        }
+        List<UnifiedEntry> entries = buildUnifiedEntries();
+        return position < 0 || position >= entries.size() ? null : entries.get(position);
     }
 
     @Override
     public int getItemViewType(int position) {
-        if (_entryList.isPositionErrorCard(position)) {
+        if (_entryList.isErrorCardShown() && position == 0) {
             return R.layout.card_error;
         }
-
-        if (_entryList.isPositionFooter(position)) {
+        if (position == getItemCount() - 1) {
             return R.layout.card_footer;
         }
-
+        UnifiedEntry entry = getUnifiedEntryAtPosition(position);
+        if (entry != null && !entry.isOtp()) {
+            return R.layout.card_password_entry;
+        }
         return _viewMode.getLayoutId();
     }
 
@@ -412,7 +502,9 @@ public class EntryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
 
         if (viewType == R.layout.card_error) {
             holder = new ErrorCardHolder(view, Objects.requireNonNull(_entryList.getErrorCardInfo()));
-        }  else if (viewType == R.layout.card_footer) {
+        } else if (viewType == R.layout.card_password_entry) {
+            holder = new PasswordRowHolder(view);
+        } else if (viewType == R.layout.card_footer) {
             holder = new FooterView(view);
         } else {
             holder = new EntryHolder(view);
@@ -435,10 +527,24 @@ public class EntryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
 
     @Override
     public void onBindViewHolder(final RecyclerView.ViewHolder holder, int position) {
+        if (holder instanceof PasswordRowHolder) {
+            UnifiedEntry unifiedEntry = getUnifiedEntryAtPosition(position);
+            if (unifiedEntry != null && !unifiedEntry.isOtp()) {
+                PasswordEntry password = unifiedEntry.getPasswordEntry();
+                PasswordRowHolder passwordHolder = (PasswordRowHolder) holder;
+                passwordHolder.name.setText(password.getName());
+                passwordHolder.itemView.setOnClickListener(v -> _view.onPasswordEntryClick(password));
+            }
+            return;
+        }
+
         if (holder instanceof EntryHolder) {
             EntryHolder entryHolder = (EntryHolder) holder;
-            int index = _entryList.translateEntryPosToIndex(position);
-            VaultEntry entry = _entryList.getShownEntries().get(index);
+            UnifiedEntry unifiedEntry = getUnifiedEntryAtPosition(position);
+            if (unifiedEntry == null || !unifiedEntry.isOtp()) {
+                return;
+            }
+            VaultEntry entry = unifiedEntry.getOtpEntry();
 
             boolean hidden = _tapToReveal && !entry.equals(_focusedEntry);
             boolean paused = _pauseFocused && entry.equals(_focusedEntry);
@@ -525,8 +631,7 @@ public class EntryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
                         entryHolder.setFocusedAndAnimate(true);
                     }
 
-                    int index = _entryList.translateEntryPosToIndex(position);
-                    boolean returnVal = _view.onLongEntryClick(_entryList.getShownEntries().get(index));
+                    boolean returnVal = _view.onLongEntryClick(entry);
                     if (_selectedEntries.size() == 0 || isEntryDraggable(entry)) {
                         _view.startDrag(entryHolder);
                     }
@@ -748,6 +853,16 @@ public class EntryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
         _lastUsedTimestamps.put(entry.getUUID(), new Date().getTime());
     }
 
+    public boolean isPasswordEntryAtPosition(int position) {
+        UnifiedEntry entry = getUnifiedEntryAtPosition(position);
+        return entry != null && !entry.isOtp();
+    }
+
+    public boolean isPositionInFavoriteSection(int position) {
+        UnifiedEntry entry = getUnifiedEntryAtPosition(position);
+        return entry != null && entry.isOtp() && entry.getOtpEntry().isFavorite();
+    }
+
     public boolean isDragAndDropAllowed() {
         return _sortCategory == SortCategory.CUSTOM && _groupFilter.isEmpty() && _searchFilter == null;
     }
@@ -762,23 +877,32 @@ public class EntryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
 
     @Override
     public int getItemCount() {
-        return _entryList.getItemCount();
+        return buildUnifiedEntries().size() + 1 + (_entryList.isErrorCardShown() ? 1 : 0);
     }
 
     public int getShownEntriesCount() {
-        return _entryList.getShownEntries().size();
+        return buildUnifiedEntries().size();
     }
 
     public boolean isPositionFooter(int position) {
-        return _entryList.isPositionFooter(position);
+        return position == getItemCount() - 1;
     }
 
     public boolean isPositionErrorCard(int position) {
-        return _entryList.isPositionErrorCard(position);
+        return _entryList.isErrorCardShown() && position == 0;
     }
 
     public boolean isErrorCardShown() {
         return _entryList.isErrorCardShown();
+    }
+
+    private static class PasswordRowHolder extends RecyclerView.ViewHolder {
+        final TextView name;
+
+        PasswordRowHolder(@NonNull View itemView) {
+            super(itemView);
+            name = itemView.findViewById(R.id.password_card_name);
+        }
     }
 
     private class FooterView extends RecyclerView.ViewHolder {
@@ -954,6 +1078,8 @@ public class EntryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
         void onEntryClick(VaultEntry entry);
         boolean onLongEntryClick(VaultEntry entry);
         void onEntryMove(VaultEntry entry1, VaultEntry entry2);
+        void onUnifiedEntryMove(String firstId, String secondId);
+        void onUnifiedEntryDrop();
         void onEntryDrop(VaultEntry entry);
         void onEntryChange(VaultEntry entry);
         void onEntryCopy(VaultEntry entry);

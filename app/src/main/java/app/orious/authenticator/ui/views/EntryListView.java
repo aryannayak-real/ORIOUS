@@ -27,6 +27,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.ConcatAdapter;
 
 import app.orious.authenticator.AccountNamePosition;
 import app.orious.authenticator.CopyBehavior;
@@ -43,6 +44,7 @@ import app.orious.authenticator.helpers.VibrationHelper;
 import app.orious.authenticator.otp.TotpInfo;
 import app.orious.authenticator.ui.glide.GlideHelper;
 import app.orious.authenticator.ui.models.ErrorCardInfo;
+import app.orious.authenticator.passwords.PasswordEntry;
 import app.orious.authenticator.vault.VaultEntry;
 import app.orious.authenticator.vault.VaultGroup;
 import com.bumptech.glide.Glide;
@@ -63,7 +65,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-public class EntryListView extends Fragment implements EntryAdapter.Listener {
+public class EntryListView extends Fragment implements EntryAdapter.Listener, PasswordEntryAdapter.Listener {
     private EntryAdapter _adapter;
     private Listener _listener;
     private SimpleItemTouchHelperCallback _touchCallback;
@@ -129,6 +131,7 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
             @Override
             public int getSpanSize(int position) {
                 if (_viewMode == ViewMode.TILES
+                        && position < _adapter.getItemCount()
                         && (_adapter.isPositionFooter(position)
                         || _adapter.isPositionErrorCard(position))) {
                     return 2;
@@ -323,6 +326,13 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
         }
     }
 
+    @Override
+    public void onPasswordEntryClick(PasswordEntry entry) {
+        if (_listener != null) {
+            _listener.onPasswordEntryClick(entry);
+        }
+    }
+
     public boolean onLongEntryClick(VaultEntry entry) {
         if (_listener != null) {
             _listener.onLongEntryClick(entry);
@@ -334,6 +344,20 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
     public void onEntryMove(VaultEntry entry1, VaultEntry entry2) {
         if (_listener != null) {
             _listener.onEntryMove(entry1, entry2);
+        }
+    }
+
+    @Override
+    public void onUnifiedEntryMove(String firstId, String secondId) {
+        if (_listener != null) {
+            _listener.onUnifiedEntryMove(firstId, secondId);
+        }
+    }
+
+    @Override
+    public void onUnifiedEntryDrop() {
+        if (_listener != null) {
+            _listener.onUnifiedEntryDrop();
         }
     }
 
@@ -504,8 +528,18 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
         updateEmptyState();
     }
 
+    public void setPasswordEntries(Collection<PasswordEntry> entries) {
+        _adapter.setPasswordEntries(entries);
+        updateEmptyState();
+    }
+
+    public void setUnifiedOrder(java.util.Collection<String> order) {
+        _adapter.setUnifiedOrder(order);
+    }
+
     public void clearEntries() {
         _adapter.clearEntries();
+        _adapter.setPasswordEntries(new ArrayList<>());
         updateEmptyState();
     }
 
@@ -550,7 +584,10 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
 
     public interface Listener {
         void onEntryClick(VaultEntry entry);
+        default void onPasswordEntryClick(PasswordEntry entry) { }
         void onEntryMove(VaultEntry entry1, VaultEntry entry2);
+        default void onUnifiedEntryMove(String firstId, String secondId) { }
+        default void onUnifiedEntryDrop() { }
         void onEntryDrop(VaultEntry entry);
         void onEntryChange(VaultEntry entry);
         void onEntryCopy(VaultEntry entry);
@@ -596,7 +633,7 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
                 return;
             }
 
-            int entryIndex = _adapter.translateEntryPosToIndex(adapterPosition);
+            int entryIndex = adapterPosition - (_adapter.isErrorCardShown() ? 1 : 0);
             // The first entry should have a top margin, but only if the error card is not shown
             if (entryIndex == 0 && !_adapter.isErrorCardShown()) {
                 outRect.top = _offset;
@@ -604,8 +641,10 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
 
             // Only non-favorite entries have a bottom margin, except for the final favorite entry
             int totalFavorites = _adapter.getShownFavoritesCount();
+            VaultEntry decoratedEntry = _adapter.getEntryAtPosition(adapterPosition);
             if (totalFavorites == 0
-                    || (entryIndex < _adapter.getShownEntriesCount() && !_adapter.getEntryAtPosition(adapterPosition).isFavorite())
+                    || decoratedEntry == null
+                    || !decoratedEntry.isFavorite()
                     || totalFavorites == entryIndex + 1) {
                 outRect.bottom = _offset;
             }
@@ -620,10 +659,16 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
 
         private void decorateFavoriteEntries(@NonNull MaterialCardView view, @NonNull RecyclerView parent) {
             int adapterPosition = parent.getChildAdapterPosition(view);
-            int entryIndex = _adapter.translateEntryPosToIndex(adapterPosition);
+            int entryIndex = adapterPosition - (_adapter.isErrorCardShown() ? 1 : 0);
             int totalFavorites = _adapter.getShownFavoritesCount();
+            VaultEntry decoratedEntry = _adapter.getEntryAtPosition(adapterPosition);
 
             ShapeAppearanceModel.Builder builder = _defaultShapeModel.toBuilder();
+            if (decoratedEntry == null || !decoratedEntry.isFavorite()) {
+                view.setShapeAppearanceModel(builder.build());
+                view.setClipToOutline(true);
+                return;
+            }
             if (entryIndex < totalFavorites) {
                 if ((entryIndex == 0 && totalFavorites > 1) || (entryIndex < (totalFavorites - 1))) {
                     builder.setBottomLeftCorner(CornerFamily.ROUNDED, 0);
@@ -690,6 +735,9 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
         @NonNull
         @Override
         public List<VaultEntry> getPreloadItems(int position) {
+            if (position < 0 || position >= _adapter.getItemCount()) {
+                return Collections.emptyList();
+            }
             if (_adapter.getItemViewType(position) == R.layout.card_footer) {
                 return Collections.emptyList();
             }
@@ -699,7 +747,7 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
             }
 
             VaultEntry entry = _adapter.getEntryAtPosition(position);
-            if (!entry.hasIcon()) {
+            if (entry == null || !entry.hasIcon()) {
                 return Collections.emptyList();
             }
 

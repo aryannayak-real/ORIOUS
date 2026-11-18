@@ -53,6 +53,7 @@ import app.orious.authenticator.helpers.FabScrollHelper;
 import app.orious.authenticator.helpers.PermissionHelper;
 import app.orious.authenticator.helpers.ViewHelper;
 import app.orious.authenticator.icons.IconType;
+import app.orious.authenticator.passwords.PasswordEntry;
 import app.orious.authenticator.otp.GoogleAuthInfo;
 import app.orious.authenticator.otp.GoogleAuthInfoException;
 import app.orious.authenticator.otp.OtpInfoException;
@@ -182,6 +183,20 @@ public class MainActivity extends AegisActivity implements EntryListView.Listene
                 onAddEntryResult(activityResult.getData());
             });
 
+    private final ActivityResultLauncher<Intent> editPasswordResultLauncher =
+            registerForActivityResult(new StartActivityForResult(), activityResult -> {
+                if (activityResult.getResultCode() == RESULT_OK) {
+                    onEditEntryResult();
+                }
+            });
+
+    private final ActivityResultLauncher<Intent> passwordDetailsResultLauncher =
+            registerForActivityResult(new StartActivityForResult(), result -> {
+                if (result.getResultCode() == RESULT_OK) {
+                    onEditEntryResult();
+                }
+            });
+
     private final ActivityResultLauncher<Intent> codeScanResultLauncher =
             registerForActivityResult(new StartActivityForResult(), activityResult -> {
                 if (activityResult.getResultCode() == RESULT_OK && activityResult.getData() != null) {
@@ -254,6 +269,7 @@ public class MainActivity extends AegisActivity implements EntryListView.Listene
         actions.put(fabMenuLayout.findViewById(R.id.fab_menu_item_scan), this::startScanActivity);
         actions.put(fabMenuLayout.findViewById(R.id.fab_menu_item_scan_image), this::startScanImageActivity);
         actions.put(fabMenuLayout.findViewById(R.id.fab_menu_item_enter), this::startEditEntryActivity);
+        actions.put(fabMenuLayout.findViewById(R.id.fab_menu_item_add_password), this::startAddPasswordActivity);
 
         _fabMenuHelper = new FabMenuHelper(scrimOverlay, menuItemsContainer, fab, actions);
         _fabMenuHelper.setOnFabMenuStateChangeListener(_fabMenuBackPressHandler::setEnabled);
@@ -471,6 +487,11 @@ public class MainActivity extends AegisActivity implements EntryListView.Listene
         }
     }
 
+    private void startAddPasswordActivity() {
+        Intent intent = new Intent(this, EditPasswordActivity.class);
+        editPasswordResultLauncher.launch(intent);
+    }
+
     private void startEditEntryActivity() {
         String clip = ClipboardUtils.readText(this);
         if (clip != null) {
@@ -615,24 +636,30 @@ public class MainActivity extends AegisActivity implements EntryListView.Listene
         }
     }
 
+    private void refreshEntryLists() {
+        _entryListView.setEntries(_vaultManager.getVault().getEntries());
+        _entryListView.setPasswordEntries(_vaultManager.getVault().getPasswordEntries());
+        _entryListView.setUnifiedOrder(_vaultManager.getVault().getUnifiedOrder());
+    }
+
     private void onAddEntryResult(Intent data) {
         if (_loaded) {
             UUID entryUUID = (UUID) data.getSerializableExtra("entryUUID");
             VaultEntry entry = _vaultManager.getVault().getEntryByUUID(entryUUID);
-            _entryListView.setEntries(_vaultManager.getVault().getEntries());
+            refreshEntryLists();
             _entryListView.onEntryAdded(entry);
         }
     }
 
     private void onEditEntryResult() {
         if (_loaded) {
-            _entryListView.setEntries(_vaultManager.getVault().getEntries());
+            refreshEntryLists();
         }
     }
 
     private void onAssignIconsResult() {
         if (_loaded) {
-            _entryListView.setEntries(_vaultManager.getVault().getEntries());
+            refreshEntryLists();
         }
     }
 
@@ -738,7 +765,7 @@ public class MainActivity extends AegisActivity implements EntryListView.Listene
                 Toast.makeText(this, getResources().getQuantityString(R.plurals.added_new_entries, entries.size(), entries.size()), Toast.LENGTH_LONG).show();
             }
 
-            _entryListView.setEntries(_vaultManager.getVault().getEntries());
+            refreshEntryLists();
         }
     }
 
@@ -790,7 +817,7 @@ public class MainActivity extends AegisActivity implements EntryListView.Listene
         saveAndBackupVault();
 
         if (!newIcons.isEmpty()) {
-            _entryListView.setEntries(_vaultManager.getVault().getEntries());
+            refreshEntryLists();
         }
     }
 
@@ -1135,7 +1162,7 @@ public class MainActivity extends AegisActivity implements EntryListView.Listene
             setGroups(_vaultManager.getVault().getUsedGroups());
             _entryListView.setUsageCounts(_prefs.getUsageCounts());
             _entryListView.setLastUsedTimestamps(_prefs.getLastUsedTimestamps());
-            _entryListView.setEntries(_vaultManager.getVault().getEntries());
+            refreshEntryLists();
             if (!_isRecreated) {
                 _entryListView.runEntriesAnimation();
             }
@@ -1252,6 +1279,13 @@ public class MainActivity extends AegisActivity implements EntryListView.Listene
     }
 
     @Override
+    public void onPasswordEntryClick(PasswordEntry entry) {
+        Intent intent = new Intent(this, PasswordDetailsActivity.class);
+        intent.putExtra(EditPasswordActivity.EXTRA_PASSWORD_UUID, entry.getUUID().toString());
+        passwordDetailsResultLauncher.launch(intent);
+    }
+
+    @Override
     public void onSelect(VaultEntry entry) {
         _selectedEntries.add(entry);
     }
@@ -1310,6 +1344,16 @@ public class MainActivity extends AegisActivity implements EntryListView.Listene
     @Override
     public void onEntryMove(VaultEntry entry1, VaultEntry entry2) {
         _vaultManager.getVault().moveEntry(entry1, entry2);
+    }
+
+    @Override
+    public void onUnifiedEntryMove(String firstId, String secondId) {
+        _vaultManager.getVault().moveUnifiedEntry(firstId, secondId);
+    }
+
+    @Override
+    public void onUnifiedEntryDrop() {
+        saveVault();
     }
 
     @Override
@@ -1488,7 +1532,7 @@ public class MainActivity extends AegisActivity implements EntryListView.Listene
                 }
 
                 saveAndBackupVault();
-                _entryListView.setEntries(_vaultManager.getVault().getEntries());
+                refreshEntryLists();
                 mode.finish();
             } else if (itemId == R.id.action_share_qr) {
                 Intent intent = new Intent(getBaseContext(), TransferEntriesActivity.class);
@@ -1511,7 +1555,7 @@ public class MainActivity extends AegisActivity implements EntryListView.Listene
                     }
                     saveAndBackupVault();
                     _entryListView.setGroups(_vaultManager.getVault().getUsedGroups());
-                    _entryListView.setEntries(_vaultManager.getVault().getEntries());
+                    refreshEntryLists();
                     mode.finish();
                 });
             } else if (itemId == R.id.action_select_all) {

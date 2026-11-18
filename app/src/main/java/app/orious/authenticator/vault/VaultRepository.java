@@ -7,6 +7,7 @@ import androidx.annotation.Nullable;
 import androidx.core.util.AtomicFile;
 
 import app.orious.authenticator.otp.GoogleAuthInfo;
+import app.orious.authenticator.passwords.PasswordEntry;
 import app.orious.authenticator.util.Cloner;
 import app.orious.authenticator.util.IOUtils;
 import com.google.zxing.WriterException;
@@ -243,6 +244,7 @@ public class VaultRepository {
      */
     public void wipeContents() {
         _vault.getEntries().wipe();
+        _vault.getPasswordEntries().wipe();
         _vault.getGroups().wipe();
     }
 
@@ -270,6 +272,41 @@ public class VaultRepository {
 
     public Collection<VaultEntry> getEntries() {
         return _vault.getEntries().getValues();
+    }
+
+    // Password operations are deliberately separate from OTP operations.
+    public void addPasswordEntry(PasswordEntry entry) {
+        try {
+            entry.validate();
+        } catch (app.orious.authenticator.passwords.PasswordEntryException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
+        _vault.getPasswordEntries().add(entry);
+    }
+
+    public boolean hasPasswordEntryByUUID(UUID uuid) {
+        return _vault.getPasswordEntries().has(uuid);
+    }
+
+    public PasswordEntry getPasswordEntryByUUID(UUID uuid) {
+        return _vault.getPasswordEntries().getByUUID(uuid);
+    }
+
+    public PasswordEntry removePasswordEntry(PasswordEntry entry) {
+        return _vault.getPasswordEntries().remove(entry);
+    }
+
+    public PasswordEntry replacePasswordEntry(PasswordEntry entry) {
+        try {
+            entry.validate();
+        } catch (app.orious.authenticator.passwords.PasswordEntryException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
+        return _vault.getPasswordEntries().replace(entry);
+    }
+
+    public Collection<PasswordEntry> getPasswordEntries() {
+        return _vault.getPasswordEntries().getValues();
     }
 
     public void addGroup(VaultGroup group) {

@@ -3,6 +3,8 @@ package app.orious.authenticator.vault;
 import androidx.annotation.Nullable;
 
 import app.orious.authenticator.util.UUIDMap;
+import app.orious.authenticator.passwords.PasswordEntry;
+import app.orious.authenticator.passwords.PasswordEntryException;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -12,9 +14,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 public class Vault {
-    private static final int VERSION = 3;
+    private static final int VERSION = 4;
     private final UUIDMap<VaultEntry> _entries = new UUIDMap<>();
+    private final UUIDMap<PasswordEntry> _passwordEntries = new UUIDMap<>();
     private final UUIDMap<VaultGroup> _groups = new UUIDMap<>();
+    private final java.util.List<String> _unifiedOrder = new java.util.ArrayList<>();
     private boolean _iconsOptimized = true;
 
     // Whether we've migrated the group list to the new format while parsing the vault
@@ -33,6 +37,15 @@ public class Vault {
                 }
             }
 
+            // Password records are included in full vault exports only.
+            // Existing filtered exports remain OTP-only.
+            JSONArray passwordEntriesArray = new JSONArray();
+            if (filter == null) {
+                for (PasswordEntry entry : _passwordEntries) {
+                    passwordEntriesArray.put(entry.toJson());
+                }
+            }
+
             // Always include all groups, even if they're not assigned to any entry (before or after the entry filter)
             JSONArray groupsArray = new JSONArray();
             for (VaultGroup group : _groups) {
@@ -42,6 +55,14 @@ public class Vault {
             JSONObject obj = new JSONObject();
             obj.put("version", VERSION);
             obj.put("entries", entriesArray);
+            obj.put("passwordEntries", passwordEntriesArray);
+                if (filter == null) {
+                    JSONArray unifiedOrderArray = new JSONArray();
+                    for (String item : getUnifiedOrder()) {
+                        unifiedOrderArray.put(item);
+                    }
+                    obj.put("unifiedOrder", unifiedOrderArray);
+                }
             obj.put("groups", groupsArray);
             obj.put("icons_optimized", _iconsOptimized);
 
@@ -89,10 +110,32 @@ public class Vault {
                 entries.add(entry);
             }
 
+            JSONArray passwordArray = obj.optJSONArray("passwordEntries");
+            if (passwordArray != null) {
+                for (int i = 0; i < passwordArray.length(); i++) {
+                    PasswordEntry entry = PasswordEntry.fromJson(
+                            passwordArray.getJSONObject(i));
+                    if (!vault.getPasswordEntries().has(entry.getUUID())) {
+                        vault.getPasswordEntries().add(entry);
+                    }
+                }
+            }
+
+
+            JSONArray unifiedOrderArray = obj.optJSONArray("unifiedOrder");
+            if (unifiedOrderArray != null) {
+                for (int i = 0; i < unifiedOrderArray.length(); i++) {
+                    String item = unifiedOrderArray.optString(i, "");
+                    if (!item.isEmpty()) {
+                        vault._unifiedOrder.add(item);
+                    }
+                }
+            }
+
             if (!obj.optBoolean("icons_optimized")) {
                 vault.setIconsOptimized(false);
             }
-        } catch (VaultEntryException | JSONException e) {
+        } catch (VaultEntryException | PasswordEntryException | JSONException e) {
             throw new VaultException(e);
         }
 
@@ -137,12 +180,68 @@ public class Vault {
         return false;
     }
 
-    public UUIDMap<VaultEntry> getEntries() {
+
+    public java.util.List<String> getUnifiedOrder() {
+        java.util.Set<String> valid = new java.util.LinkedHashSet<>();
+
+        for (VaultEntry entry : _entries) {
+            valid.add("O:" + entry.getUUID());
+        }
+        for (PasswordEntry entry : _passwordEntries) {
+            valid.add("P:" + entry.getUUID());
+        }
+
+        java.util.List<String> normalized = new java.util.ArrayList<>();
+        for (String item : _unifiedOrder) {
+            if (valid.contains(item) && !normalized.contains(item)) {
+                normalized.add(item);
+            }
+        }
+        for (String item : valid) {
+            if (!normalized.contains(item)) {
+                normalized.add(item);
+            }
+        }
+
+        _unifiedOrder.clear();
+        _unifiedOrder.addAll(normalized);
+        return _unifiedOrder;
+    }
+
+    public void setUnifiedOrder(java.util.List<String> order) {
+        _unifiedOrder.clear();
+        if (order != null) {
+            _unifiedOrder.addAll(order);
+        }
+        getUnifiedOrder();
+    }
+
+    public void moveUnifiedEntry(String firstId, String secondId) {
+        java.util.List<String> order =
+                new java.util.ArrayList<>(getUnifiedOrder());
+
+        int first = order.indexOf(firstId);
+        int second = order.indexOf(secondId);
+
+        if (first < 0 || second < 0 || first == second) {
+            return;
+        }
+
+        String item = order.remove(first);
+        order.add(second, item);
+        setUnifiedOrder(order);
+    }
+
+public UUIDMap<VaultEntry> getEntries() {
         return _entries;
     }
 
     public UUIDMap<VaultGroup> getGroups() {
         return _groups;
+    }
+
+    public UUIDMap<PasswordEntry> getPasswordEntries() {
+        return _passwordEntries;
     }
 
     public interface EntryFilter {
