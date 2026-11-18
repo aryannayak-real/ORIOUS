@@ -131,6 +131,7 @@ public class EditEntryActivity extends AegisActivity {
     private List<UUID> _selectedGroups = new ArrayList<>();
 
     private KropView _kropView;
+    private RelativeLayout _profileContainer;
 
     private RelativeLayout _advancedSettingsHeader;
     private LinearLayout _advancedSettingsLayout;
@@ -198,6 +199,7 @@ public class EditEntryActivity extends AegisActivity {
 
         // set up fields
         _iconView = findViewById(R.id.profile_drawable);
+        _profileContainer = findViewById(R.id.profile_container);
         _kropView = findViewById(R.id.krop_view);
         _saveImageButton = findViewById(R.id.iv_saveImage);
         _textName = findViewById(R.id.text_name);
@@ -246,7 +248,7 @@ public class EditEntryActivity extends AegisActivity {
         }
 
         _advancedSettingsHeader = findViewById(R.id.accordian_header);
-        _advancedSettingsHeader.setOnClickListener(v -> openAdvancedSettings());
+        _advancedSettingsHeader.setOnClickListener(v -> toggleAdvancedSettings());
         _advancedSettingsLayout = findViewById(R.id.layout_advanced);
 
         // fill the fields with values if possible
@@ -482,20 +484,35 @@ public class EditEntryActivity extends AegisActivity {
         _textPin.setHint(otpType.equals(MotpInfo.ID) ? R.string.motp_pin : R.string.yandex_pin);
     }
 
-    private void openAdvancedSettings() {
-        Animation fadeOut = new AlphaAnimation(1, 0);
-        fadeOut.setInterpolator(new AccelerateInterpolator());
-        fadeOut.setDuration((long) (220 * AnimationsHelper.Scale.ANIMATOR.getValue(this)));
-        _advancedSettingsHeader.startAnimation(fadeOut);
+    private void toggleAdvancedSettings() {
+        boolean expand = _advancedSettingsLayout.getVisibility() != View.VISIBLE;
+        View arrow = _advancedSettingsHeader.findViewById(R.id.down_btn);
+        long duration = (long) (220 * AnimationsHelper.Scale.ANIMATOR.getValue(this));
 
-        fadeOut.setAnimationListener(new SimpleAnimationEndListener((a) -> {
-            _advancedSettingsHeader.setVisibility(View.GONE);
+        _advancedSettingsLayout.animate().cancel();
+        arrow.animate().cancel();
+
+        arrow.animate()
+                .rotation(expand ? 180f : 0f)
+                .setDuration(duration)
+                .start();
+
+        if (expand) {
             _advancedSettingsLayout.setVisibility(View.VISIBLE);
+            _advancedSettingsLayout.setAlpha(0f);
             _advancedSettingsLayout.animate()
+                    .alpha(1f)
                     .setInterpolator(new AccelerateInterpolator())
-                    .setDuration((long) (250 * AnimationsHelper.Scale.ANIMATOR.getValue(this)))
-                    .alpha(1);
-        }));
+                    .setDuration(duration)
+                    .start();
+        } else {
+            _advancedSettingsLayout.animate()
+                    .alpha(0f)
+                    .setInterpolator(new AccelerateInterpolator())
+                    .setDuration(duration)
+                    .withEndAction(() -> _advancedSettingsLayout.setVisibility(View.GONE))
+                    .start();
+        }
     }
 
     private boolean hasUnsavedChanges(VaultEntry newEntry) {
@@ -613,7 +630,14 @@ public class EditEntryActivity extends AegisActivity {
         GlideHelper.loadIcon(Glide.with(EditEntryActivity.this), icon, _iconView);
     }
 
+    private void setProfileContainerHeight(int heightDp) {
+        ViewGroup.LayoutParams params = _profileContainer.getLayoutParams();
+        params.height = (int) (heightDp * getResources().getDisplayMetrics().density + 0.5f);
+        _profileContainer.setLayoutParams(params);
+    }
+
     private void startEditingIcon(Uri data) {
+        setProfileContainerHeight(250);
         Glide.with(this)
                 .asBitmap()
                 .load(data)
@@ -646,6 +670,7 @@ public class EditEntryActivity extends AegisActivity {
         }
         _iconView.setVisibility(View.VISIBLE);
         _kropView.setVisibility(View.GONE);
+        setProfileContainerHeight(112);
 
         _hasCustomIcon = _hasCustomIcon || save;
         _hasChangedIcon = save;
