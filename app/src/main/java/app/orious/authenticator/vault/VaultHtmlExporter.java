@@ -9,18 +9,23 @@ import app.orious.authenticator.R;
 import app.orious.authenticator.encoding.Base32;
 import app.orious.authenticator.encoding.Hex;
 import app.orious.authenticator.helpers.QrCodeHelper;
+import app.orious.authenticator.notes.NoteEntry;
 import app.orious.authenticator.otp.GoogleAuthInfo;
 import app.orious.authenticator.otp.HotpInfo;
 import app.orious.authenticator.otp.MotpInfo;
 import app.orious.authenticator.otp.OtpInfo;
 import app.orious.authenticator.otp.YandexInfo;
+import app.orious.authenticator.passwords.PasswordEntry;
 import com.google.common.html.HtmlEscapers;
 import com.google.zxing.WriterException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.text.DateFormat;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
 
 public class VaultHtmlExporter {
     private VaultHtmlExporter() {
@@ -28,6 +33,14 @@ public class VaultHtmlExporter {
     }
 
     public static void export(Context context, PrintStream ps, Collection<VaultEntry> entries) throws WriterException, IOException {
+        export(context, ps, entries, Collections.emptyList(), Collections.emptyList());
+    }
+
+    public static void export(Context context, PrintStream ps, Collection<VaultEntry> entries, Collection<PasswordEntry> passwordEntries) throws WriterException, IOException {
+        export(context, ps, entries, passwordEntries, Collections.emptyList());
+    }
+
+    public static void export(Context context, PrintStream ps, Collection<VaultEntry> entries, Collection<PasswordEntry> passwordEntries, Collection<NoteEntry> notes) throws WriterException, IOException {
         ps.print("<html><head><title>");
         ps.print(context.getString(R.string.export_html_title));
         ps.print("</title></head><body>");
@@ -81,7 +94,55 @@ public class VaultHtmlExporter {
             }
             ps.print("</tr>");
         }
-        ps.print("</table></body>");
+        ps.print("</table>");
+        if (passwordEntries != null && !passwordEntries.isEmpty()) {
+            ps.print("<h2>");
+            ps.print(escape(context.getString(R.string.export_html_passwords_title)));
+            ps.print("</h2><table><tr>");
+            ps.print("<th>Name</th>");
+            ps.print("<th>Username</th>");
+            ps.print("<th>Password</th>");
+            ps.print("<th>Website</th>");
+            ps.print("<th>Notes</th>");
+            ps.print("<th>UUID</th>");
+            ps.print("</tr>");
+            for (PasswordEntry password : passwordEntries) {
+                ps.print("<tr>");
+                appendRow(ps, password.getName());
+                appendRow(ps, password.getUsername());
+                appendRow(ps, password.getPassword());
+                appendRow(ps, password.getWebsite());
+                appendRow(ps, password.getNotes());
+                appendRow(ps, password.getUUID().toString());
+                ps.print("</tr>");
+            }
+            ps.print("</table>");
+        }
+        if (notes != null && !notes.isEmpty()) {
+            DateFormat dateFormat = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT);
+            ps.print("<h2>");
+            ps.print(escape(context.getString(R.string.export_html_notes_title)));
+            ps.print("</h2><table><tr>");
+            ps.print("<th>Title</th>");
+            ps.print("<th>Content</th>");
+            ps.print("<th>Favorite</th>");
+            ps.print("<th>Last Modified</th>");
+            ps.print("<th>UUID</th>");
+            ps.print("</tr>");
+            for (NoteEntry note : notes) {
+                ps.print("<tr>");
+                appendRow(ps, note.getTitle());
+                ps.print("<td>");
+                ps.print(escape(note.getContent()).replace("\n", "<br/>"));
+                ps.print("</td>");
+                appendRow(ps, Boolean.toString(note.isFavorite()));
+                appendRow(ps, dateFormat.format(new Date(note.getUpdatedAt())));
+                appendRow(ps, note.getUUID().toString());
+                ps.print("</tr>");
+            }
+            ps.print("</table>");
+        }
+        ps.print("</body>");
         ps.print("<style>table,td,th{border:1px solid #000;border-collapse:collapse;text-align:center}td:not(.qr),th{padding:1em}</style>");
         ps.print("</html>");
     }

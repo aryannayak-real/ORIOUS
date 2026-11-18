@@ -3,6 +3,9 @@ package app.orious.authenticator.ui;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -11,6 +14,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
+import androidx.core.content.IntentCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -22,6 +26,8 @@ import app.orious.authenticator.icons.IconType;
 import app.orious.authenticator.importers.DatabaseImporter;
 import app.orious.authenticator.importers.DatabaseImporterEntryException;
 import app.orious.authenticator.importers.DatabaseImporterException;
+import app.orious.authenticator.notes.NoteEntry;
+import app.orious.authenticator.passwords.PasswordEntry;
 import app.orious.authenticator.ui.dialogs.Dialogs;
 import app.orious.authenticator.ui.models.ImportEntry;
 import app.orious.authenticator.ui.tasks.IconOptimizationTask;
@@ -43,20 +49,30 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class ImportEntriesActivity extends AegisActivity {
+    private static final String TAG = ImportEntriesActivity.class.getSimpleName();
+
     private View _view;
     private Menu _menu;
     private RecyclerView _entriesView;
     private ImportEntriesAdapter _adapter;
     private FabScrollHelper _fabScrollHelper;
+    private final ExecutorService _importExecutor = Executors.newSingleThreadExecutor();
+    private final Handler _mainHandler = new Handler(Looper.getMainLooper());
 
     private UUIDMap<VaultGroup> _importedGroups;
+    private UUIDMap<PasswordEntry> _importedPasswordEntries;
+    private UUIDMap<NoteEntry> _importedNotes;
+    private List<String> _importedUnifiedOrder;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,8 +107,11 @@ public class ImportEntriesActivity extends AegisActivity {
 
         FloatingActionButton fab = findViewById(R.id.fab);
         fab.setOnClickListener(v -> {
-            if (_vaultManager.getVault().getEntries().size() > 0
-                    && _menu.findItem(R.id.toggle_wipe_vault).isChecked()) {
+            VaultRepository vault = _vaultManager.getVault();
+            boolean hasExistingData = !vault.getEntries().isEmpty()
+                    || !vault.getPasswordEntries().isEmpty()
+                    || !vault.getNotes().isEmpty();
+            if (hasExistingData && _menu.findItem(R.id.toggle_wipe_vault).isChecked()) {
                 showWipeEntriesDialog();
             } else {
                 saveAndFinish(false);
@@ -100,8 +119,20 @@ public class ImportEntriesActivity extends AegisActivity {
         });
         _fabScrollHelper = new FabScrollHelper(fab);
 
-        DatabaseImporter.Definition importerDef = (DatabaseImporter.Definition) getIntent().getSerializableExtra("importerDef");
-        startImport(importerDef, (File) getIntent().getSerializableExtra("file"));
+        DatabaseImporter.Definition importerDef = IntentCompat.getSerializableExtra(
+                getIntent(), "importerDef", DatabaseImporter.Definition.class);
+        File file = IntentCompat.getSerializableExtra(getIntent(), "file", File.class);
+        if (importerDef == null) {
+            finish();
+            return;
+        }
+        startImport(importerDef, file);
+    }
+
+    @Override
+    protected void onDestroy() {
+        _importExecutor.shutdownNow();
+        super.onDestroy();
     }
 
     private void startImport(DatabaseImporter.Definition importerDef, @Nullable File file) {
@@ -129,15 +160,30 @@ public class ImportEntriesActivity extends AegisActivity {
     }
 
     private void startImportFile(@NonNull DatabaseImporter importer, @NonNull File file) {
-        try (InputStream stream = new FileInputStream(file)) {
-            DatabaseImporter.State state = importer.read(stream);
-            processImporterState(state);
-        } catch (FileNotFoundException e) {
-            Toast.makeText(this, R.string.file_not_found, Toast.LENGTH_SHORT).show();
-        } catch (DatabaseImporterException | IOException e) {
-            e.printStackTrace();
-            Dialogs.showErrorDialog(this, R.string.reading_file_error, e, (dialog, which) -> finish());
-        }
+        _importExecutor.execute(() -> {
+            try (InputStream stream = new FileInputStream(file)) {
+                DatabaseImporter.State state = importer.read(stream);
+                _mainHandler.post(() -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        processImporterState(state);
+                    }
+                });
+            } catch (FileNotFoundException e) {
+                _mainHandler.post(() -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        Toast.makeText(this, R.string.file_not_found, Toast.LENGTH_SHORT).show();
+                        finish();
+                    }
+                });
+            } catch (DatabaseImporterException | IOException e) {
+                Log.e(TAG, "Failed to read import file", e);
+                _mainHandler.post(() -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        Dialogs.showErrorDialog(this, R.string.reading_file_error, e, (dialog, which) -> finish());
+                    }
+                });
+            }
+        });
     }
 
     private void startImportApp(@NonNull DatabaseImporter importer) {
@@ -156,17 +202,17 @@ public class ImportEntriesActivity extends AegisActivity {
                 DatabaseImporter.State state = importer.readFromApp(shell);
                 processImporterState(state);
             } catch (PackageManager.NameNotFoundException e) {
-                e.printStackTrace();
+                Log.e(TAG, "Target app not found during direct import", e);
                 Toast.makeText(this, R.string.app_lookup_error, Toast.LENGTH_SHORT).show();
                 finish();
             } catch (DatabaseImporterException e) {
-                e.printStackTrace();
+                Log.e(TAG, "Failed reading app database during direct import", e);
                 Dialogs.showErrorDialog(this, R.string.reading_file_error, e, (dialog, which) -> finish());
             } finally {
                 try {
                     shell.close();
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    Log.w(TAG, "Failed closing root shell", e);
                 }
             }
         });
@@ -184,7 +230,7 @@ public class ImportEntriesActivity extends AegisActivity {
 
                     @Override
                     public void onError(Exception e) {
-                        e.printStackTrace();
+                        Log.e(TAG, "Failed decrypting imported database", e);
                         Dialogs.showErrorDialog(ImportEntriesActivity.this, R.string.decryption_error, e, (dialog, which) -> finish());
                     }
 
@@ -197,7 +243,7 @@ public class ImportEntriesActivity extends AegisActivity {
                 processDecryptedImporterState(state);
             }
         } catch (DatabaseImporterException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed processing importer state", e);
             Dialogs.showErrorDialog(this, R.string.parsing_file_error, e, (dialog, which) -> finish());
         }
     }
@@ -207,7 +253,7 @@ public class ImportEntriesActivity extends AegisActivity {
         try {
             result = state.convert();
         } catch (DatabaseImporterException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed converting imported database", e);
             Dialogs.showErrorDialog(this, R.string.parsing_file_error, e, (dialog, which) -> finish());
             return;
         }
@@ -241,6 +287,9 @@ public class ImportEntriesActivity extends AegisActivity {
         }
 
         _importedGroups = result.getGroups();
+        _importedPasswordEntries = result.getPasswordEntries();
+        _importedNotes = result.getNotes();
+        _importedUnifiedOrder = result.getUnifiedOrder();
 
         List<DatabaseImporterEntryException> errors = result.getErrors();
         if (errors.size() > 0) {
@@ -299,19 +348,61 @@ public class ImportEntriesActivity extends AegisActivity {
             }
         }
 
+        Map<String, String> remappedOrderIds = new HashMap<>();
         for (ImportEntry selectedEntry : selectedEntries) {
             VaultEntry entry = selectedEntry.getEntry();
+            String oldId = "O:" + entry.getUUID();
 
             // temporary: randomize the UUID of duplicate entries and add them anyway
             if (vault.isEntryDuplicate(entry)) {
                 entry.resetUUID();
             }
 
+            remappedOrderIds.put(oldId, "O:" + entry.getUUID());
             vault.addEntry(entry);
         }
 
+        if (_importedPasswordEntries != null) {
+            for (PasswordEntry pwEntry : _importedPasswordEntries) {
+                PasswordEntry copy = new PasswordEntry(pwEntry);
+                String oldId = "P:" + copy.getUUID();
+                if (vault.hasPasswordEntryByUUID(copy.getUUID())) {
+                    copy.resetUUID();
+                }
+                remappedOrderIds.put(oldId, "P:" + copy.getUUID());
+                vault.addPasswordEntry(copy);
+            }
+        }
+
+        if (_importedNotes != null) {
+            for (NoteEntry importedNote : _importedNotes) {
+                NoteEntry copy = new NoteEntry(importedNote);
+                if (vault.hasNoteByUUID(copy.getUUID())) {
+                    copy.resetUUID();
+                }
+                vault.addNote(copy);
+            }
+        }
+
+        if (_importedUnifiedOrder != null && !_importedUnifiedOrder.isEmpty()) {
+            List<String> mergedOrder = new ArrayList<>(vault.getUnifiedOrder());
+            if (wipeEntries) {
+                mergedOrder.clear();
+            }
+            for (String item : _importedUnifiedOrder) {
+                String mapped = remappedOrderIds.getOrDefault(item, item);
+                if (!mergedOrder.contains(mapped)) {
+                    mergedOrder.add(mapped);
+                }
+            }
+            vault.setUnifiedOrder(mergedOrder);
+        }
+
         if (saveAndBackupVault()) {
-            String toastMessage = getResources().getQuantityString(R.plurals.imported_entries_count, selectedEntries.size(), selectedEntries.size());
+            int importedCount = selectedEntries.size()
+                    + (_importedPasswordEntries != null ? _importedPasswordEntries.getValues().size() : 0)
+                    + (_importedNotes != null ? _importedNotes.getValues().size() : 0);
+            String toastMessage = getResources().getQuantityString(R.plurals.imported_entries_count, importedCount, importedCount);
             Toast.makeText(this, toastMessage, Toast.LENGTH_SHORT).show();
 
 

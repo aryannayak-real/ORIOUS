@@ -8,6 +8,10 @@ import androidx.lifecycle.Lifecycle;
 
 import app.orious.authenticator.R;
 import app.orious.authenticator.helpers.ContextHelper;
+import app.orious.authenticator.notes.NoteEntry;
+import app.orious.authenticator.notes.NoteEntryException;
+import app.orious.authenticator.passwords.PasswordEntry;
+import app.orious.authenticator.passwords.PasswordEntryException;
 import app.orious.authenticator.ui.dialogs.Dialogs;
 import app.orious.authenticator.ui.tasks.PasswordSlotDecryptTask;
 import app.orious.authenticator.util.IOUtils;
@@ -27,6 +31,7 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -164,6 +169,48 @@ public class AegisImporter extends DatabaseImporter {
                         result.addError(e);
                     }
                 }
+
+                JSONArray passwordArray = _obj.optJSONArray("passwordEntries");
+                if (passwordArray != null) {
+                    for (int i = 0; i < passwordArray.length(); i++) {
+                        JSONObject pwObj = passwordArray.getJSONObject(i);
+                        try {
+                            PasswordEntry pwEntry = convertPasswordEntry(pwObj);
+                            if (!result.getPasswordEntries().has(pwEntry.getUUID())) {
+                                result.addPasswordEntry(pwEntry);
+                            }
+                        } catch (DatabaseImporterEntryException e) {
+                            result.addError(e);
+                        }
+                    }
+                }
+
+                JSONArray notesArray = _obj.optJSONArray("notes");
+                if (notesArray != null) {
+                    for (int i = 0; i < notesArray.length(); i++) {
+                        JSONObject noteObj = notesArray.getJSONObject(i);
+                        try {
+                            NoteEntry note = convertNote(noteObj);
+                            if (!result.getNotes().has(note.getUUID())) {
+                                result.addNote(note);
+                            }
+                        } catch (DatabaseImporterEntryException e) {
+                            result.addError(e);
+                        }
+                    }
+                }
+
+                JSONArray unifiedOrderArray = _obj.optJSONArray("unifiedOrder");
+                if (unifiedOrderArray != null) {
+                    List<String> unifiedOrder = new ArrayList<>();
+                    for (int i = 0; i < unifiedOrderArray.length(); i++) {
+                        String item = unifiedOrderArray.optString(i, "");
+                        if (!item.isEmpty()) {
+                            unifiedOrder.add(item);
+                        }
+                    }
+                    result.setUnifiedOrder(unifiedOrder);
+                }
             } catch (JSONException e) {
                 throw new DatabaseImporterException(e);
             }
@@ -175,6 +222,22 @@ public class AegisImporter extends DatabaseImporter {
             try {
                 return VaultEntry.fromJson(obj);
             } catch (VaultEntryException e) {
+                throw new DatabaseImporterEntryException(e, obj.toString());
+            }
+        }
+
+        private static PasswordEntry convertPasswordEntry(JSONObject obj) throws DatabaseImporterEntryException {
+            try {
+                return PasswordEntry.fromJson(obj);
+            } catch (PasswordEntryException e) {
+                throw new DatabaseImporterEntryException(e, obj.toString());
+            }
+        }
+
+        private static NoteEntry convertNote(JSONObject obj) throws DatabaseImporterEntryException {
+            try {
+                return NoteEntry.fromJson(obj);
+            } catch (NoteEntryException e) {
                 throw new DatabaseImporterEntryException(e, obj.toString());
             }
         }

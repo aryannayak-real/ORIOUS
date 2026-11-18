@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.AutoCompleteTextView;
@@ -66,6 +67,7 @@ import java.util.stream.Collectors;
 import javax.crypto.Cipher;
 
 public class ImportExportPreferencesFragment extends PreferencesFragment {
+    private static final String TAG = ImportExportPreferencesFragment.class.getSimpleName();
     // keep a reference to the type of database converter that was selected
     private DatabaseImporter.Definition _importerDef;
     private Vault.EntryFilter _exportFilter;
@@ -298,7 +300,7 @@ public class ImportExportPreferencesFragment extends PreferencesFragment {
                     VaultBackupManager.FileInfo fileInfo = getExportFileInfo(pos, encrypt);
                     file = new File(getExportCacheDir(), fileInfo.toString());
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    Log.e(TAG, "Failed to prepare export cache file", e);
                     Dialogs.showErrorDialog(requireContext(), R.string.exporting_vault_error, e);
                     return;
                 }
@@ -309,7 +311,7 @@ public class ImportExportPreferencesFragment extends PreferencesFragment {
                     try (OutputStream stream = new FileOutputStream(file)) {
                         cb.exportVault(stream);
                     } catch (IOException | VaultRepositoryException e) {
-                        e.printStackTrace();
+                        Log.e(TAG, "Failed to export vault to cache file", e);
                         Dialogs.showErrorDialog(requireContext(), R.string.exporting_vault_error, e);
                         return;
                     }
@@ -475,7 +477,8 @@ public class ImportExportPreferencesFragment extends PreferencesFragment {
 
                         @Override
                         public void onException(Exception e) {
-
+                            Log.e(TAG, "Failed to prepare export password slot", e);
+                            Dialogs.showErrorDialog(requireContext(), R.string.exporting_vault_error, e);
                         }
                     });
                 }
@@ -519,7 +522,7 @@ public class ImportExportPreferencesFragment extends PreferencesFragment {
                 outStream = new FileOutputStream(file);
                 cb.exportVault(outStream);
             } catch (VaultRepositoryException | IOException e) {
-                e.printStackTrace();
+                Log.e(TAG, "Failed to prepare vault export", e);
                 Dialogs.showErrorDialog(requireContext(), R.string.exporting_vault_error, e);
                 return;
             } finally {
@@ -528,7 +531,7 @@ public class ImportExportPreferencesFragment extends PreferencesFragment {
                         outStream.close();
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    Log.w(TAG, "Failed to close export stream", e);
                 }
             }
 
@@ -551,7 +554,7 @@ public class ImportExportPreferencesFragment extends PreferencesFragment {
         @Override
         public void onTaskFinished(Exception e) {
             if (e != null) {
-                e.printStackTrace();
+                Log.e(TAG, "Vault export task failed", e);
                 Dialogs.showErrorDialog(requireContext(), R.string.exporting_vault_error, e);
             } else {
                 // if the user creates an export, hide the backup reminder

@@ -120,9 +120,8 @@ public abstract class AegisActivity extends AppCompatActivity implements VaultMa
     protected void setLocale(Locale locale) {
         Locale.setDefault(locale);
 
-        Configuration config = new Configuration();
-        config.locale = locale;
-
+        Configuration config = new Configuration(getResources().getConfiguration());
+        config.setLocale(locale);
         getResources().updateConfiguration(config, getResources().getDisplayMetrics());
     }
 
@@ -144,6 +143,28 @@ public abstract class AegisActivity extends AppCompatActivity implements VaultMa
             Toast.makeText(this, getString(R.string.saving_error), Toast.LENGTH_LONG).show();
             return false;
         }
+    }
+
+    protected void saveVaultAsync(VaultManager.SaveCallback callback) {
+        _vaultManager.saveAsync(error -> {
+            if (error != null && !isFinishing() && !isDestroyed()) {
+                Toast.makeText(this, getString(R.string.saving_error), Toast.LENGTH_LONG).show();
+            }
+            if (callback != null) {
+                callback.onComplete(error);
+            }
+        });
+    }
+
+    protected void saveAndBackupVaultAsync(VaultManager.SaveCallback callback) {
+        _vaultManager.saveAndBackupAsync(error -> {
+            if (error != null && !isFinishing() && !isDestroyed()) {
+                Toast.makeText(this, getString(R.string.saving_error), Toast.LENGTH_LONG).show();
+            }
+            if (callback != null) {
+                callback.onComplete(error);
+            }
+        });
     }
 
     /**

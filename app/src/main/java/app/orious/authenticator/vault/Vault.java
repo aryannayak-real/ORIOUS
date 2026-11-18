@@ -2,6 +2,8 @@ package app.orious.authenticator.vault;
 
 import androidx.annotation.Nullable;
 
+import app.orious.authenticator.notes.NoteEntry;
+import app.orious.authenticator.notes.NoteEntryException;
 import app.orious.authenticator.util.UUIDMap;
 import app.orious.authenticator.passwords.PasswordEntry;
 import app.orious.authenticator.passwords.PasswordEntryException;
@@ -14,9 +16,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 public class Vault {
-    private static final int VERSION = 4;
+    private static final int VERSION = 5;
     private final UUIDMap<VaultEntry> _entries = new UUIDMap<>();
     private final UUIDMap<PasswordEntry> _passwordEntries = new UUIDMap<>();
+    private final UUIDMap<NoteEntry> _notes = new UUIDMap<>();
     private final UUIDMap<VaultGroup> _groups = new UUIDMap<>();
     private final java.util.List<String> _unifiedOrder = new java.util.ArrayList<>();
     private boolean _iconsOptimized = true;
@@ -37,12 +40,16 @@ public class Vault {
                 }
             }
 
-            // Password records are included in full vault exports only.
+            // Password and private note records are included in full vault exports only.
             // Existing filtered exports remain OTP-only.
             JSONArray passwordEntriesArray = new JSONArray();
+            JSONArray notesArray = new JSONArray();
             if (filter == null) {
                 for (PasswordEntry entry : _passwordEntries) {
                     passwordEntriesArray.put(entry.toJson());
+                }
+                for (NoteEntry note : _notes) {
+                    notesArray.put(note.toJson());
                 }
             }
 
@@ -56,6 +63,7 @@ public class Vault {
             obj.put("version", VERSION);
             obj.put("entries", entriesArray);
             obj.put("passwordEntries", passwordEntriesArray);
+            obj.put("notes", notesArray);
                 if (filter == null) {
                     JSONArray unifiedOrderArray = new JSONArray();
                     for (String item : getUnifiedOrder()) {
@@ -122,6 +130,17 @@ public class Vault {
             }
 
 
+            JSONArray notesArray = obj.optJSONArray("notes");
+            if (notesArray != null) {
+                for (int i = 0; i < notesArray.length(); i++) {
+                    NoteEntry note = NoteEntry.fromJson(notesArray.getJSONObject(i));
+                    if (!vault.getNotes().has(note.getUUID())) {
+                        vault.getNotes().add(note);
+                    }
+                }
+            }
+
+
             JSONArray unifiedOrderArray = obj.optJSONArray("unifiedOrder");
             if (unifiedOrderArray != null) {
                 for (int i = 0; i < unifiedOrderArray.length(); i++) {
@@ -135,7 +154,7 @@ public class Vault {
             if (!obj.optBoolean("icons_optimized")) {
                 vault.setIconsOptimized(false);
             }
-        } catch (VaultEntryException | PasswordEntryException | JSONException e) {
+        } catch (VaultEntryException | PasswordEntryException | NoteEntryException | JSONException e) {
             throw new VaultException(e);
         }
 
@@ -191,14 +210,15 @@ public class Vault {
             valid.add("P:" + entry.getUUID());
         }
 
-        java.util.List<String> normalized = new java.util.ArrayList<>();
+        java.util.List<String> normalized = new java.util.ArrayList<>(valid.size());
+        java.util.Set<String> seen = new java.util.HashSet<>(valid.size());
         for (String item : _unifiedOrder) {
-            if (valid.contains(item) && !normalized.contains(item)) {
+            if (valid.contains(item) && seen.add(item)) {
                 normalized.add(item);
             }
         }
         for (String item : valid) {
-            if (!normalized.contains(item)) {
+            if (seen.add(item)) {
                 normalized.add(item);
             }
         }
@@ -242,6 +262,10 @@ public UUIDMap<VaultEntry> getEntries() {
 
     public UUIDMap<PasswordEntry> getPasswordEntries() {
         return _passwordEntries;
+    }
+
+    public UUIDMap<NoteEntry> getNotes() {
+        return _notes;
     }
 
     public interface EntryFilter {

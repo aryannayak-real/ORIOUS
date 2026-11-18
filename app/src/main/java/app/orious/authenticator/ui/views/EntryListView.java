@@ -13,7 +13,9 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.LayoutAnimationController;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.AttrRes;
 import androidx.annotation.NonNull;
@@ -286,6 +288,13 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
         updateDividerDecoration();
     }
 
+    public void setEntryTypeFilter(EntryAdapter.EntryTypeFilter filter) {
+        _adapter.setEntryTypeFilter(filter);
+        _touchCallback.setIsLongPressDragEnabled(_adapter.isDragAndDropAllowed());
+        updateEmptyState();
+        updateDividerDecoration();
+    }
+
     public void setSelectedEntry(VaultEntry entry) {
         _touchCallback.setSelectedEntry(entry);
     }
@@ -329,6 +338,13 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
     public void onPasswordEntryClick(PasswordEntry entry) {
         if (_listener != null) {
             _listener.onPasswordEntryClick(entry);
+        }
+    }
+
+    @Override
+    public void onPasswordEntryCopy(PasswordEntry entry) {
+        if (_listener != null) {
+            _listener.onPasswordEntryCopy(entry);
         }
     }
 
@@ -527,6 +543,15 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
         updateEmptyState();
     }
 
+    public void setAllEntries(
+            Collection<VaultEntry> entries,
+            Collection<PasswordEntry> passwordEntries,
+            Collection<String> unifiedOrder
+    ) {
+        _adapter.setAllEntries(new ArrayList<>(entries), passwordEntries, unifiedOrder);
+        updateEmptyState();
+    }
+
     public void setPasswordEntries(Collection<PasswordEntry> entries) {
         _adapter.setPasswordEntries(entries);
         updateEmptyState();
@@ -538,7 +563,6 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
 
     public void clearEntries() {
         _adapter.clearEntries();
-        _adapter.setPasswordEntries(new ArrayList<>());
         updateEmptyState();
     }
 
@@ -570,20 +594,31 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
     }
 
     private void updateEmptyState() {
-        if (_adapter.getShownEntriesCount() > 0) {
+        if (_adapter.getShownEntriesCount() > 0 || !Strings.isNullOrEmpty(_adapter.getSearchFilter())) {
             _recyclerView.setVisibility(View.VISIBLE);
             _emptyStateView.setVisibility(View.GONE);
         } else {
-            if (Strings.isNullOrEmpty(_adapter.getSearchFilter())) {
-                _recyclerView.setVisibility(View.GONE);
-                _emptyStateView.setVisibility(View.VISIBLE);
+            ImageView icon = _emptyStateView.findViewById(R.id.imageView);
+            TextView title = _emptyStateView.findViewById(R.id.textView);
+            TextView message = _emptyStateView.findViewById(R.id.textView5);
+            if (_adapter.getEntryTypeFilter() == EntryAdapter.EntryTypeFilter.PASSWORDS_ONLY) {
+                icon.setImageResource(R.drawable.ic_outline_lock_24);
+                title.setText(R.string.empty_passwords_title);
+                message.setText(R.string.empty_passwords_message);
+            } else {
+                icon.setImageResource(R.drawable.ic_qrcode_scan);
+                title.setText(R.string.empty_list_title);
+                message.setText(R.string.empty_list);
             }
+            _recyclerView.setVisibility(View.GONE);
+            _emptyStateView.setVisibility(View.VISIBLE);
         }
     }
 
     public interface Listener {
         void onEntryClick(VaultEntry entry);
         default void onPasswordEntryClick(PasswordEntry entry) { }
+        default void onPasswordEntryCopy(PasswordEntry entry) { }
         void onEntryMove(VaultEntry entry1, VaultEntry entry2);
         default void onUnifiedEntryMove(String firstId, String secondId) { }
         default void onUnifiedEntryDrop() { }
@@ -653,7 +688,9 @@ public class EntryListView extends Fragment implements EntryAdapter.Listener {
                 outRect.bottom = 0;
             }
 
-            decorateFavoriteEntries((MaterialCardView) view, parent);
+            if (view instanceof MaterialCardView) {
+                decorateFavoriteEntries((MaterialCardView) view, parent);
+            }
         }
 
         private void decorateFavoriteEntries(@NonNull MaterialCardView view, @NonNull RecyclerView parent) {

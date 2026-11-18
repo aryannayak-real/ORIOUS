@@ -86,9 +86,6 @@ public class PasswordEntry extends UUIDMap.Value {
         if (_password.isEmpty()) {
             throw new PasswordEntryException("Password is required");
         }
-        if (_username.trim().isEmpty()) {
-            throw new PasswordEntryException("Username or email is required");
-        }
     }
 
     public String getName() {
@@ -129,5 +126,27 @@ public class PasswordEntry extends UUIDMap.Value {
 
     public void setNotes(String notes) {
         _notes = notes == null ? "" : notes;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof PasswordEntry)) {
+            return false;
+        }
+        PasswordEntry that = (PasswordEntry) o;
+        return super.equals(that)
+                && _name.equals(that._name)
+                && _username.equals(that._username)
+                && _password.equals(that._password)
+                && _website.equals(that._website)
+                && _notes.equals(that._notes);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(getUUID(), _name, _username, _password, _website, _notes);
     }
 }

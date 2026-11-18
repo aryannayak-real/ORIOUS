@@ -11,5 +11,6 @@
     <issue id="UnusedResources" severity="error">
         <ignore path="res/raw/aboutlibraries.json" />
         <ignore regexp="res/mipmap.*/ic_launcher_debug.*.png" />
+        <ignore regexp="channel_(name|description)_lock_status" />
     </issue>
 </lint>

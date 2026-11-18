@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_authenticator"
+        android:icon="@drawable/ic_outline_key_24"
+        android:title="@string/nav_authenticator" />
+    <item
+        android:id="@+id/nav_passwords"
+        android:icon="@drawable/ic_outline_lock_24"
+        android:title="@string/nav_passwords" />
+    <item
+        android:id="@+id/nav_notebook"
+        android:icon="@drawable/ic_outline_description_24"
+        android:title="@string/nav_notebook" />
+</menu>

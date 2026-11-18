@@ -31,4 +31,24 @@ public final class ClipboardUtils {
 
         return text;
     }
+
+    public static void copyText(Context context, String label, String text, boolean sensitive) {
+        if (context == null || text == null) {
+            return;
+        }
+
+        ClipboardManager clipboard =
+                (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard == null) {
+            return;
+        }
+
+        ClipData clip = ClipData.newPlainText(label != null ? label : "text/plain", text);
+        if (sensitive && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            android.os.PersistableBundle extras = new android.os.PersistableBundle();
+            extras.putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true);
+            clip.getDescription().setExtras(extras);
+        }
+        clipboard.setPrimaryClip(clip);
+    }
 }

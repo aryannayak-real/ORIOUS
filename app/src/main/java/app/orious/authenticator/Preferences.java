@@ -5,12 +5,14 @@ import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Build;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.provider.DocumentsContractCompat;
 import androidx.preference.PreferenceManager;
 
+import app.orious.authenticator.notes.NoteSortCategory;
 import app.orious.authenticator.util.JsonUtils;
 import app.orious.authenticator.util.TimeUtils;
 import app.orious.authenticator.vault.VaultBackupPermissionException;
@@ -31,6 +33,7 @@ import java.util.Set;
 import java.util.UUID;
 
 public class Preferences {
+    private static final String TAG = Preferences.class.getSimpleName();
     public static final int AUTO_LOCK_OFF = 1 << 0;
     public static final int AUTO_LOCK_ON_BACK_BUTTON = 1 << 1;
     public static final int AUTO_LOCK_ON_MINIMIZE = 1 << 2;
@@ -236,6 +239,14 @@ public class Preferences {
         return SortCategory.fromInteger(_prefs.getInt("pref_current_sort_category", 0));
     }
 
+    public void setNoteSortCategory(NoteSortCategory category) {
+        _prefs.edit().putInt("pref_note_sort_category", category.ordinal()).apply();
+    }
+
+    public NoteSortCategory getNoteSortCategory() {
+        return NoteSortCategory.fromInteger(_prefs.getInt("pref_note_sort_category", 0));
+    }
+
     public int getTapToRevealTime() {
         return _prefs.getInt("pref_tap_to_reveal_time", 30);
     }
@@ -319,7 +330,7 @@ public class Preferences {
                 entryJson.put("timestamp", entry.getValue());
                 lastUsedTimestampJson.put(entryJson);
             } catch (JSONException e) {
-                e.printStackTrace();
+                Log.w(TAG, "Failed to serialize last used timestamp", e);
             }
         }
 
@@ -350,7 +361,7 @@ public class Preferences {
                 entryJson.put("count", entry.getValue());
                 usageCountJson.put(entryJson);
             } catch (JSONException e) {
-                e.printStackTrace();
+                Log.w(TAG, "Failed to serialize usage count", e);
             }
         }
 

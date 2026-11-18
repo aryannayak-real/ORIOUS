@@ -78,6 +78,10 @@
             android:name=".ui.PasswordDetailsActivity"
             android:exported="false" />
         <activity
+            android:name=".ui.NoteEditorActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name=".ui.EditEntryActivity"
             android:label="@string/title_activity_edit_entry" />
         <activity

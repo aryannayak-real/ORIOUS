@@ -2,6 +2,7 @@ package app.orious.authenticator.ui.fragments.preferences;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
@@ -30,6 +31,7 @@ import dagger.hilt.android.AndroidEntryPoint;
 
 @AndroidEntryPoint
 public abstract class PreferencesFragment extends PreferenceFragmentCompat {
+    private static final String TAG = PreferencesFragment.class.getSimpleName();
     // activity request codes
     public static final int CODE_EXPORT = 5;
     public static final int CODE_EXPORT_PLAIN = 6;
@@ -89,7 +91,7 @@ public abstract class PreferencesFragment extends PreferenceFragmentCompat {
         try {
             _vaultManager.saveAndBackup();
         } catch (VaultRepositoryException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed to save and backup vault", e);
             Dialogs.showErrorDialog(requireContext(), R.string.saving_error, e);
             return false;
         }

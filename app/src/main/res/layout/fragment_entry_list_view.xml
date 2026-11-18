@@ -24,7 +24,9 @@
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
         android:scrollbarStyle="outsideOverlay"
-        android:scrollbars="vertical"  android:paddingTop="6dp" android:paddingBottom="8dp"/>
+        android:scrollbars="vertical"
+        android:paddingTop="6dp"
+        android:paddingBottom="88dp"/>
 
     <LinearLayout
         android:id="@+id/vEmptyList"
@@ -48,7 +50,7 @@
                 android:alpha="0.85"
                 android:contentDescription="@null"
                 android:src="@drawable/ic_qrcode_scan"
-                android:tint="?attr/colorOnSurfaceVariant" />
+                app:tint="?attr/colorOnSurfaceVariant" />
 
             <TextView
                 android:id="@+id/textView"

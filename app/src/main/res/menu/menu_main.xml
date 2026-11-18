@@ -44,6 +44,27 @@
                     android:id="@+id/menu_sort_last_used"
                     android:title="@string/sort_last_used"/>
             </group>
+            <group
+                android:id="@+id/action_sort_notes_category"
+                android:checkableBehavior="single"
+                android:visible="false">
+                <item
+                    android:id="@+id/menu_sort_notes_modified_desc"
+                    android:title="@string/note_sort_modified_desc"
+                    android:checked="true" />
+                <item
+                    android:id="@+id/menu_sort_notes_modified_asc"
+                    android:title="@string/note_sort_modified_asc" />
+                <item
+                    android:id="@+id/menu_sort_notes_title_asc"
+                    android:title="@string/note_sort_title_asc" />
+                <item
+                    android:id="@+id/menu_sort_notes_title_desc"
+                    android:title="@string/note_sort_title_desc" />
+                <item
+                    android:id="@+id/menu_sort_notes_created_desc"
+                    android:title="@string/note_sort_created_desc" />
+            </group>
         </menu>
     </item>
     <item

@@ -33,6 +33,7 @@ public class EditPasswordActivity extends AegisActivity {
     private PasswordEntry _originalEntry;
     private PasswordEntry _workingEntry;
     private boolean _isNew;
+    private boolean _isSaving;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -142,6 +143,10 @@ public class EditPasswordActivity extends AegisActivity {
     }
 
     private void saveEntry() {
+        if (_isSaving) {
+            return;
+        }
+
         String name = value(_name).trim();
         String username = value(_username).trim();
         String password = value(_password);
@@ -151,11 +156,6 @@ public class EditPasswordActivity extends AegisActivity {
         if (name.isEmpty()) {
             _name.setError(getString(R.string.password_entry_required));
             _name.requestFocus();
-            return;
-        }
-        if (username.isEmpty()) {
-            _username.setError(getString(R.string.password_entry_required));
-            _username.requestFocus();
             return;
         }
         if (password.isEmpty()) {
@@ -184,19 +184,26 @@ public class EditPasswordActivity extends AegisActivity {
                 previousEntry = repository.replacePasswordEntry(_workingEntry);
             }
 
-            if (saveAndBackupVault()) {
-                Intent result = new Intent();
-                result.putExtra(EXTRA_PASSWORD_UUID, _workingEntry.getUUID().toString());
-                setResult(RESULT_OK, result);
-                finish();
-            } else {
-                if (addedNewEntry) {
-                    repository.removePasswordEntry(_workingEntry);
-                } else if (previousEntry != null) {
-                    repository.replacePasswordEntry(previousEntry);
+            final PasswordEntry rollbackPrevious = previousEntry;
+            final boolean rollbackAdded = addedNewEntry;
+            _isSaving = true;
+            saveAndBackupVaultAsync(error -> {
+                _isSaving = false;
+                if (error == null) {
+                    Intent result = new Intent();
+                    result.putExtra(EXTRA_PASSWORD_UUID, _workingEntry.getUUID().toString());
+                    setResult(RESULT_OK, result);
+                    finish();
+                } else {
+                    if (rollbackAdded) {
+                        repository.removePasswordEntry(_workingEntry);
+                    } else if (rollbackPrevious != null) {
+                        repository.replacePasswordEntry(rollbackPrevious);
+                    }
                 }
-            }
+            });
         } catch (Exception e) {
+            _isSaving = false;
             Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }

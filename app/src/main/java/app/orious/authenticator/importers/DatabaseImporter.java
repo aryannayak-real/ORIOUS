@@ -6,6 +6,8 @@ import android.content.pm.PackageManager;
 import androidx.annotation.StringRes;
 
 import app.orious.authenticator.R;
+import app.orious.authenticator.notes.NoteEntry;
+import app.orious.authenticator.passwords.PasswordEntry;
 import app.orious.authenticator.util.UUIDMap;
 import app.orious.authenticator.vault.VaultEntry;
 import app.orious.authenticator.vault.VaultGroup;
@@ -171,15 +173,33 @@ public abstract class DatabaseImporter {
 
     public static class Result {
         private UUIDMap<VaultEntry> _entries = new UUIDMap<>();
+        private UUIDMap<PasswordEntry> _passwordEntries = new UUIDMap<>();
+        private UUIDMap<NoteEntry> _notes = new UUIDMap<>();
         private UUIDMap<VaultGroup> _groups = new UUIDMap<>();
+        private List<String> _unifiedOrder = new ArrayList<>();
         private List<DatabaseImporterEntryException> _errors = new ArrayList<>();
 
         public void addEntry(VaultEntry entry) {
             _entries.add(entry);
         }
 
+        public void addPasswordEntry(PasswordEntry entry) {
+            _passwordEntries.add(entry);
+        }
+
+        public void addNote(NoteEntry note) {
+            _notes.add(note);
+        }
+
         public void addGroup(VaultGroup group) {
             _groups.add(group);
+        }
+
+        public void setUnifiedOrder(List<String> unifiedOrder) {
+            _unifiedOrder.clear();
+            if (unifiedOrder != null) {
+                _unifiedOrder.addAll(unifiedOrder);
+            }
         }
 
         public void addError(DatabaseImporterEntryException error) {
@@ -190,8 +210,20 @@ public abstract class DatabaseImporter {
             return _entries;
         }
 
+        public UUIDMap<PasswordEntry> getPasswordEntries() {
+            return _passwordEntries;
+        }
+
+        public UUIDMap<NoteEntry> getNotes() {
+            return _notes;
+        }
+
         public UUIDMap<VaultGroup> getGroups() {
             return _groups;
+        }
+
+        public List<String> getUnifiedOrder() {
+            return _unifiedOrder;
         }
 
         public List<DatabaseImporterEntryException> getErrors() {

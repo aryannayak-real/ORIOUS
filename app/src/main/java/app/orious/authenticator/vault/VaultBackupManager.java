@@ -61,7 +61,7 @@ public class VaultBackupManager {
                 _auditLogRepository.addBackupCreatedEvent();
                 _prefs.setBuiltInBackupResult(new Preferences.BackupResult(null));
             } catch (VaultRepositoryException | VaultBackupPermissionException e) {
-                e.printStackTrace();
+                Log.e(TAG, "Scheduled backup failed", e);
                 _prefs.setBuiltInBackupResult(new Preferences.BackupResult(e));
             }
         });

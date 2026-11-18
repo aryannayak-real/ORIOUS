@@ -7,6 +7,8 @@ import java.util.List;
 public final class PasswordGenerator {
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    public static final int MAX_LENGTH = 64;
+
     private PasswordGenerator() {}
 
     public static String generate(
@@ -27,9 +29,9 @@ public final class PasswordGenerator {
         if (enabled.isEmpty()) {
             throw new IllegalArgumentException("Select at least one character type");
         }
-        if (length < enabled.size() || length > 30) {
+        if (length < enabled.size() || length > MAX_LENGTH) {
             throw new IllegalArgumentException(
-                    "Password length must be at least the number of selected character types"
+                    "Password length must be between the number of selected character types and " + MAX_LENGTH
             );
         }
 
@@ -39,7 +41,8 @@ public final class PasswordGenerator {
                 filtered.add(chars.replace("O", "")
                         .replace("0", "")
                         .replace("I", "")
-                        .replace("l", ""));
+                        .replace("l", "")
+                        .replace("1", ""));
             }
             enabled = filtered;
         }

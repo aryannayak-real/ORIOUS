@@ -6,6 +6,9 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.NonNull;
@@ -18,8 +21,9 @@ import app.orious.authenticator.R;
 import app.orious.authenticator.crypto.KeyStoreHandle;
 import app.orious.authenticator.crypto.KeyStoreHandleException;
 import app.orious.authenticator.database.AuditLogRepository;
-import app.orious.authenticator.services.NotificationService;
 import app.orious.authenticator.ui.dialogs.Dialogs;
+
+import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -27,8 +31,12 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class VaultManager {
+    private static final String TAG = VaultManager.class.getSimpleName();
+
     private final Context _context;
     private final Preferences _prefs;
 
@@ -41,6 +49,8 @@ public class VaultManager {
     private boolean _blockAutoLock;
 
     private final AuditLogRepository _auditLogRepository;
+    private final ExecutorService _saveExecutor = Executors.newSingleThreadExecutor();
+    private final Handler _mainHandler = new Handler(Looper.getMainLooper());
 
     public VaultManager(@NonNull Context context, AuditLogRepository auditLogRepository) {
         _context = context;
@@ -65,10 +75,6 @@ public class VaultManager {
         repo.save();
         _repo = repo;
 
-        if (getVault().isEncryptionEnabled()) {
-            startNotificationService();
-        }
-
         return getVault();
     }
 
@@ -83,10 +89,6 @@ public class VaultManager {
         }
 
         _repo = VaultRepository.fromFile(_context, vaultFile, creds);
-
-        if (getVault().isEncryptionEnabled()) {
-            startNotificationService();
-        }
 
         return getVault();
     }
@@ -106,14 +108,11 @@ public class VaultManager {
         for (LockListener listener : _lockListeners) {
             listener.onLocked(userInitiated);
         }
-
-        stopNotificationService();
     }
 
     public void enableEncryption(VaultFileCredentials creds) throws VaultRepositoryException {
         getVault().setCredentials(creds);
         saveAndBackup();
-        startNotificationService();
     }
 
     public void disableEncryption() throws VaultRepositoryException {
@@ -126,25 +125,64 @@ public class VaultManager {
             handle.clear();
         } catch (KeyStoreHandleException e) {
             // this cleanup operation is not strictly necessary, so we ignore any exceptions here
-            e.printStackTrace();
+            Log.w(TAG, "Failed to clear KeyStore handle when disabling encryption", e);
         }
-
-        stopNotificationService();
     }
 
     public void save() throws VaultRepositoryException {
         getVault().save();
     }
 
+    public void saveAsync(@Nullable SaveCallback callback) {
+        saveInternalAsync(false, callback);
+    }
+
+    public void saveAndBackupAsync(@Nullable SaveCallback callback) {
+        saveInternalAsync(true, callback);
+    }
+
+    private void saveInternalAsync(boolean backup, @Nullable SaveCallback callback) {
+        if (!isVaultLoaded()) {
+            if (callback != null) {
+                _mainHandler.post(() -> callback.onComplete(
+                        new VaultRepositoryException("Vault manager is not initialized")
+                ));
+            }
+            return;
+        }
+
+        VaultRepository repo = getVault();
+        JSONObject snapshot = repo.snapshotJson();
+        _saveExecutor.execute(() -> {
+            try {
+                repo.saveSnapshot(snapshot);
+                if (backup) {
+                    runBackups(repo, snapshot);
+                }
+                if (callback != null) {
+                    _mainHandler.post(() -> callback.onComplete(null));
+                }
+            } catch (VaultRepositoryException e) {
+                Log.e(TAG, "Async vault save failed", e);
+                if (callback != null) {
+                    _mainHandler.post(() -> callback.onComplete(e));
+                }
+            }
+        });
+    }
+
     public void saveAndBackup() throws VaultRepositoryException {
         save();
+        runBackups(getVault(), null);
+    }
 
+    private void runBackups(VaultRepository repo, @Nullable JSONObject snapshot) {
         boolean backedUp = false;
-        if (getVault().isEncryptionEnabled()) {
+        if (repo.isEncryptionEnabled()) {
             if (_prefs.isBackupsEnabled()) {
                 backedUp = true;
                 try {
-                    scheduleBackup();
+                    scheduleBackup(repo, snapshot);
                 } catch (VaultRepositoryException e) {
                     _prefs.setBuiltInBackupResult(new Preferences.BackupResult(e));
                 }
@@ -162,6 +200,10 @@ public class VaultManager {
     }
 
     public void scheduleBackup() throws VaultRepositoryException {
+        scheduleBackup(getVault(), null);
+    }
+
+    private void scheduleBackup(VaultRepository repo, @Nullable JSONObject snapshot) throws VaultRepositoryException {
         _prefs.setIsBackupReminderNeeded(false);
 
         try {
@@ -172,14 +214,25 @@ public class VaultManager {
 
             File tempFile = File.createTempFile(VaultBackupManager.FILENAME_PREFIX, ".json", dir);
             try (OutputStream outStream = new FileOutputStream(tempFile)) {
-                _repo.export(outStream);
+                if (snapshot != null) {
+                    VaultFile vaultFile = new VaultFile();
+                    VaultFileCredentials creds = repo.getCredentials();
+                    if (creds != null) {
+                        vaultFile.setContent(snapshot, creds.exportable());
+                    } else {
+                        vaultFile.setContent(snapshot);
+                    }
+                    outStream.write(vaultFile.toBytes());
+                } else {
+                    repo.export(outStream);
+                }
             }
             BackupsVersioningStrategy strategy = _prefs.getBackupVersioningStrategy();
             Uri uri = _prefs.getBackupsLocation();
             int versionsToKeep = _prefs.getBackupsVersionCount();
 
             _backups.scheduleBackup(tempFile, strategy, uri, versionsToKeep);
-        } catch (IOException e) {
+        } catch (IOException | VaultFileException e) {
             throw new VaultRepositoryException(e);
         }
     }
@@ -246,7 +299,7 @@ public class VaultManager {
         try {
             resultLauncher.launch(intent);
         } catch (ActivityNotFoundException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Unable to launch intent", e);
 
             if (isDocsAction(intent.getAction())) {
                 Dialogs.showErrorDialog(activity, R.string.documentsui_error, e);
@@ -266,7 +319,7 @@ public class VaultManager {
         try {
             resultLauncher.launch(intent);
         } catch (ActivityNotFoundException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Unable to launch intent", e);
 
             if (isDocsAction(intent.getAction())) {
                 Dialogs.showErrorDialog(fragment.requireContext(), R.string.documentsui_error, e);
@@ -274,22 +327,6 @@ public class VaultManager {
                 throw e;
             }
         }
-    }
-
-    private void startNotificationService() {
-        // NOTE: Disabled for now. See issue: #1047
-        /*if (PermissionHelper.granted(_context, Manifest.permission.POST_NOTIFICATIONS)) {
-            _context.startService(getNotificationServiceIntent());
-        }*/
-    }
-
-    private void stopNotificationService() {
-        // NOTE: Disabled for now. See issue: #1047
-        //_context.stopService(getNotificationServiceIntent());
-    }
-
-    private Intent getNotificationServiceIntent() {
-        return new Intent(_context, NotificationService.class);
     }
 
     private static boolean isDocsAction(@Nullable String action) {
@@ -305,5 +342,9 @@ public class VaultManager {
          * @param userInitiated whether or not the user initiated the lock in MainActivity.
          */
         void onLocked(boolean userInitiated);
+    }
+
+    public interface SaveCallback {
+        void onComplete(@Nullable VaultRepositoryException error);
     }
 }

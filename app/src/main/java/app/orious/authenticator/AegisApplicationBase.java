@@ -1,8 +1,6 @@
 package app.orious.authenticator;
 
 import android.app.Application;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ShortcutInfo;
@@ -32,8 +30,6 @@ import dagger.hilt.android.EarlyEntryPoints;
 import dagger.hilt.components.SingletonComponent;
 
 public abstract class AegisApplicationBase extends Application {
-    private static final String CODE_LOCK_STATUS_ID = "lock_status_channel";
-
     private VaultManager _vaultManager;
 
     static {
@@ -59,11 +55,10 @@ public abstract class AegisApplicationBase extends Application {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
             initAppShortcuts();
         }
+    }
 
-        // NOTE: Disabled for now. See issue: #1047
-        /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            initNotificationChannels();
-        }*/
+    public VaultManager getVaultManager() {
+        return _vaultManager;
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N_MR1)
@@ -86,20 +81,6 @@ public abstract class AegisApplicationBase extends Application {
                 .build();
 
         shortcutManager.setDynamicShortcuts(Collections.singletonList(shortcut));
-    }
-
-    private void initNotificationChannels() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            CharSequence name = getString(R.string.channel_name_lock_status);
-            String description = getString(R.string.channel_description_lock_status);
-            int importance = NotificationManager.IMPORTANCE_LOW;
-
-            NotificationChannel channel = new NotificationChannel(CODE_LOCK_STATUS_ID, name, importance);
-            channel.setDescription(description);
-
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(channel);
-        }
     }
 
     private class AppLifecycleObserver implements LifecycleEventObserver {

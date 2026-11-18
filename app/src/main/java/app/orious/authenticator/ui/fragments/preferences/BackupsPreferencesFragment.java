@@ -9,6 +9,7 @@ import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -26,6 +27,7 @@ import app.orious.authenticator.vault.VaultRepositoryException;
 import com.google.android.material.color.MaterialColors;
 
 public class BackupsPreferencesFragment extends PreferencesFragment {
+    private static final String TAG = BackupsPreferencesFragment.class.getSimpleName();
     private SwitchPreferenceCompat _androidBackupsPreference;
     private SwitchPreferenceCompat _backupsPreference;
     private SwitchPreferenceCompat _backupReminderPreference;
@@ -275,7 +277,7 @@ public class BackupsPreferencesFragment extends PreferencesFragment {
             _vaultManager.scheduleBackup();
             Toast.makeText(requireContext(), R.string.backup_successful, Toast.LENGTH_LONG).show();
         } catch (VaultRepositoryException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Failed to schedule manual backup", e);
             Dialogs.showErrorDialog(requireContext(), R.string.backup_error, e);
         }
     }

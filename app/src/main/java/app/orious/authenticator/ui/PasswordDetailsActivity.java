@@ -2,7 +2,6 @@ package app.orious.authenticator.ui;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.text.InputType;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -19,6 +18,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import app.orious.authenticator.R;
 import app.orious.authenticator.helpers.ViewHelper;
 import app.orious.authenticator.passwords.PasswordEntry;
+import app.orious.authenticator.util.ClipboardUtils;
 import app.orious.authenticator.vault.VaultRepository;
 
 import java.util.UUID;
@@ -29,6 +29,7 @@ public class PasswordDetailsActivity extends AegisActivity {
     private TextView _password;
     private TextView _passwordToggle;
     private boolean _passwordVisible;
+    private boolean _isDeleting;
 
     private final ActivityResultLauncher<Intent> _editLauncher =
             registerForActivityResult(new StartActivityForResult(), result -> {
@@ -61,6 +62,20 @@ public class PasswordDetailsActivity extends AegisActivity {
             updatePasswordVisibility();
         });
 
+        findViewById(R.id.password_detail_copy_username).setOnClickListener(v -> {
+            if (_entry != null && !_entry.getUsername().isEmpty()) {
+                ClipboardUtils.copyText(this, "username", _entry.getUsername(), false);
+                Toast.makeText(this, R.string.username_copied, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        findViewById(R.id.password_detail_copy_value).setOnClickListener(v -> {
+            if (_entry != null) {
+                ClipboardUtils.copyText(this, "password", _entry.getPassword(), true);
+                Toast.makeText(this, R.string.password_copied, Toast.LENGTH_SHORT).show();
+            }
+        });
+
         loadEntry();
     }
 
@@ -83,6 +98,8 @@ public class PasswordDetailsActivity extends AegisActivity {
         setText(R.id.password_detail_website, _entry.getWebsite());
         setText(R.id.password_detail_notes, _entry.getNotes());
 
+        findViewById(R.id.password_detail_username_container)
+                .setVisibility(_entry.getUsername().isEmpty() ? View.GONE : View.VISIBLE);
         findViewById(R.id.password_detail_website_container)
                 .setVisibility(_entry.getWebsite().isEmpty() ? View.GONE : View.VISIBLE);
         findViewById(R.id.password_detail_notes_container)
@@ -124,21 +141,25 @@ public class PasswordDetailsActivity extends AegisActivity {
     }
 
     private void deleteEntry() {
-        if (_entry == null) return;
+        if (_entry == null || _isDeleting) return;
 
         new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.password_details_delete_title)
                 .setMessage(R.string.password_details_delete_message)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(R.string.action_delete, (dialog, which) -> {
+                    _isDeleting = true;
                     VaultRepository repository = _vaultManager.getVault();
                     PasswordEntry removedEntry = repository.removePasswordEntry(_entry);
-                    if (saveAndBackupVault()) {
-                        setResult(RESULT_OK);
-                        finish();
-                    } else if (removedEntry != null) {
-                        repository.addPasswordEntry(removedEntry);
-                    }
+                    saveAndBackupVaultAsync(error -> {
+                        _isDeleting = false;
+                        if (error == null) {
+                            setResult(RESULT_OK);
+                            finish();
+                        } else if (removedEntry != null) {
+                            repository.addPasswordEntry(removedEntry);
+                        }
+                    });
                 })
                 .show();
     }

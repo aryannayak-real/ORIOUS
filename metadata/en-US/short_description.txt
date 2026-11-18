@@ -1,1 +1,1 @@
-Free, secure and open source 2FA app to manage tokens for your online services
+Encrypted 2FA authenticator, password manager, and private notebook for Android

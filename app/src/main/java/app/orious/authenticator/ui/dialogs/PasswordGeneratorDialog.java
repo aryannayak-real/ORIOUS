@@ -92,20 +92,14 @@ public final class PasswordGeneratorDialog {
 
         lengthSlider.addOnChangeListener((slider, value, fromUser) -> {
             updateLength.run();
-            generated[0] = null;
-            preview.setText(R.string.password_generator_tap_regenerate);
-            updateAvailability.run();
+            generate.run();
         });
 
         MaterialSwitch[] switches = {
                 uppercase, lowercase, numbers, symbols, excludeAmbiguous
         };
         for (MaterialSwitch item : switches) {
-            item.setOnCheckedChangeListener((button, checked) -> {
-                generated[0] = null;
-                preview.setText(R.string.password_generator_tap_regenerate);
-                updateAvailability.run();
-            });
+            item.setOnCheckedChangeListener((button, checked) -> generate.run());
         }
 
         regenerate.setOnClickListener(v -> generate.run());

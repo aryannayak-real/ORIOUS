@@ -6,6 +6,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.util.AtomicFile;
 
+import app.orious.authenticator.notes.NoteEntry;
+import app.orious.authenticator.notes.NoteEntryException;
 import app.orious.authenticator.otp.GoogleAuthInfo;
 import app.orious.authenticator.passwords.PasswordEntry;
 import app.orious.authenticator.util.Cloner;
@@ -112,10 +114,12 @@ public class VaultRepository {
         return new VaultRepository(context, vault, creds);
     }
 
-    void save() throws VaultRepositoryException {
-        try {
-            JSONObject obj = _vault.toJson();
+    public JSONObject snapshotJson() {
+        return _vault.toJson();
+    }
 
+    public synchronized void saveSnapshot(@NonNull JSONObject obj) throws VaultRepositoryException {
+        try {
             VaultFile file = new VaultFile();
             if (isEncryptionEnabled()) {
                 file.setContent(obj, _creds);
@@ -132,6 +136,10 @@ public class VaultRepository {
         } catch (VaultFileException e) {
             throw new VaultRepositoryException(e);
         }
+    }
+
+    void save() throws VaultRepositoryException {
+        saveSnapshot(snapshotJson());
     }
 
     /**
@@ -214,8 +222,15 @@ public class VaultRepository {
                     .collect(Collectors.toList());
         }
 
+        Collection<PasswordEntry> passwordEntries = filter == null
+                ? getPasswordEntries()
+                : java.util.Collections.emptyList();
+        Collection<NoteEntry> notes = filter == null
+                ? getNotes()
+                : java.util.Collections.emptyList();
+
         try (PrintStream ps = new PrintStream(outStream, false, StandardCharsets.UTF_8.name())) {
-            VaultHtmlExporter.export(_context, ps, entries);
+            VaultHtmlExporter.export(_context, ps, entries, passwordEntries, notes);
         } catch (WriterException | IOException e) {
             throw new VaultRepositoryException(e);
         }
@@ -245,7 +260,9 @@ public class VaultRepository {
     public void wipeContents() {
         _vault.getEntries().wipe();
         _vault.getPasswordEntries().wipe();
+        _vault.getNotes().wipe();
         _vault.getGroups().wipe();
+        _vault.setUnifiedOrder(null);
     }
 
     public VaultEntry replaceEntry(VaultEntry entry) {
@@ -309,8 +326,47 @@ public class VaultRepository {
         return _vault.getPasswordEntries().getValues();
     }
 
+    public void addNote(NoteEntry note) {
+        try {
+            note.validate();
+        } catch (NoteEntryException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
+        _vault.getNotes().add(note);
+    }
+
+    public boolean hasNoteByUUID(UUID uuid) {
+        return _vault.getNotes().has(uuid);
+    }
+
+    @androidx.annotation.Nullable
+    public NoteEntry getNoteByUUID(UUID uuid) {
+        return hasNoteByUUID(uuid) ? _vault.getNotes().getByUUID(uuid) : null;
+    }
+
+    public NoteEntry removeNote(NoteEntry note) {
+        return _vault.getNotes().remove(note);
+    }
+
+    public NoteEntry replaceNote(NoteEntry note) {
+        try {
+            note.validate();
+        } catch (NoteEntryException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
+        return _vault.getNotes().replace(note);
+    }
+
+    public Collection<NoteEntry> getNotes() {
+        return _vault.getNotes().getValues();
+    }
+
     public java.util.List<String> getUnifiedOrder() {
         return _vault.getUnifiedOrder();
+    }
+
+    public void setUnifiedOrder(java.util.List<String> order) {
+        _vault.setUnifiedOrder(order);
     }
 
     public void moveUnifiedEntry(String firstId, String secondId) {

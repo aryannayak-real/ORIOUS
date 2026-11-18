@@ -2,53 +2,56 @@
   <img width="100" src="metadata/en-US/images/icon.png" alt="ORIOUS icon">
 </p>
 
-<h1 align="center">ORIOUS Authenticator</h1>
+<h1 align="center">ORIOUS</h1>
 
 <p align="center">
-  A free, secure and open-source two-factor authentication app for Android.
+  A free, secure, offline-first <strong>Two-Factor Authenticator</strong>, <strong>Password Manager</strong>, and <strong>Private Notebook</strong> for Android.
 </p>
 
 <p align="center">
-  <a href="https://github.com/aryannayak-real/ORIOUS">GitHub Repository</a>
+  <a href="https://github.com/aryannayak-real/ORIOUS">GitHub Repository</a> ·
+  <a href="https://github.com/aryannayak-real/ORIOUS/releases">Releases</a> ·
+  <a href="FAQ.md">FAQ</a> ·
+  <a href="docs/vault.md">Vault Security</a>
 </p>
 
-ORIOUS Authenticator helps protect your online accounts with secure two-factor authentication. It supports HOTP and TOTP, making it compatible with thousands of services.
+ORIOUS protects your accounts, passwords, and personal notes inside a single AES-256-GCM encrypted vault stored locally on your device—with zero cloud accounts, zero telemetry, and full encrypted backup/restore support.
 
 ORIOUS is based on [Aegis Authenticator](https://github.com/beemdevelopment/Aegis), originally developed by Alexander Bakker and Michael Schättgen.
 
-For frequently asked questions, see the [FAQ](FAQ.md).
+## What's Inside
 
-The security design and vault format are described in the [vault documentation](docs/vault.md).
+ORIOUS organizes your security essentials into three independent sections inside one unified encrypted vault:
 
-## Features
+### 1. Authenticator (2FA Tokens)
+- Supports **TOTP**, **HOTP**, **Steam**, **mOTP**, and **YAOTP** standards
+- Compatible with Google Authenticator (`otpauth://` and batch `otpauth-migration://` QR imports)
+- Add entries by scanning QR codes, decoding gallery images, importing from clipboard, or manual entry
+- Tap to reveal codes, live expiration progress indicator, and haptic expiry alerts
+- Organize with custom groups, custom/auto-generated icons, and alphabetical or custom drag-and-drop sorting
+- Import from 2FAS Authenticator, andOTP, Authenticator Plus, Authy, Bitwarden, Duo, Ente Auth, FreeOTP, FreeOTP+, Google Authenticator, Microsoft Authenticator, Proton Authenticator, Steam, Stratum, TOTP Authenticator, and WinAuth
 
-- Free and open source
-- Secure encrypted vault using AES-256-GCM
-- Unlock using a password or biometrics
-- Screen capture prevention
-- Tap to reveal codes
-- Compatible with Google Authenticator
-- Supports HOTP and TOTP standards
-- Add entries by scanning QR codes or images
-- Manually enter account details
-- Import from other authenticator apps:
-  - 2FAS Authenticator
-  - Authenticator Plus
-  - Authy
-  - andOTP
-  - FreeOTP and FreeOTP+
-  - Google Authenticator
-  - Microsoft Authenticator
-  - Steam
-  - TOTP Authenticator
-  - WinAuth
-- Organize and group entries
-- Alphabetical and custom sorting
-- Custom or automatically generated icons
-- Search by name or issuer
-- Light, dark and AMOLED themes
-- Export entries in plaintext or encrypted formats
-- Automatic vault backups
+### 2. Password Manager
+- Store service names, usernames, passwords, websites, and password notes inside the encrypted vault
+- Built-in configurable password generator (length, uppercase/lowercase, numbers, symbols, exclude ambiguous characters)
+- Quick copy password/username actions marked sensitive (`EXTRA_IS_SENSITIVE`) with optional auto-minimize
+- Search and sort across saved credentials
+
+### 3. Private Notebook
+- Create, view, edit, search, favorite, and delete personal multiline notes
+- Distraction-free note editor supporting long notes, preserved line breaks, live word counts, and last-modified timestamps
+- Filter by **All notes** or **Favorites**, search across titles and bodies, and sort by last modified, title, or creation date
+- Delete confirmation guard and zero plaintext note storage outside the vault
+
+## Security & Backups
+
+- **AES-256-GCM + scrypt Encryption**: Master key protected by password and/or Android Keystore biometric slots
+- **Offline-First & Private**: No separate account, no cloud lock-in, no plaintext note or credential storage
+- **Screen Capture Prevention**: `FLAG_SECURE` enabled across vault views and editors
+- **Auto-Lock**: Lock on minimize, screen off, or back button, clearing in-memory entries and notes immediately
+- **Full Encrypted Backup & Restore**: All 2FA tokens, passwords, and private notes are included in encrypted vault backups, restores, imports, and HTML exports
+
+For cryptographic details and vault format specifications, see [docs/vault.md](docs/vault.md) and [FAQ.md](FAQ.md).
 
 ## Screenshots
 
@@ -61,34 +64,57 @@ The security design and vault format are described in the [vault documentation](
 [<img width="200" alt="Screenshot 7" src="metadata/en-US/images/phoneScreenshots/screenshot7.png?raw=true">](metadata/en-US/images/phoneScreenshots/screenshot7.png?raw=true)
 [<img width="200" alt="Screenshot 8" src="metadata/en-US/images/phoneScreenshots/screenshot8.png?raw=true">](metadata/en-US/images/phoneScreenshots/screenshot8.png?raw=true)
 
-## Downloads
+## Downloads & Releases
 
-ORIOUS releases and installation instructions will be published through this repository when available.
+Signed release APKs are built and published automatically on tagged releases (`v*`) via GitHub Actions.
 
-[View the ORIOUS GitHub repository](https://github.com/aryannayak-real/ORIOUS)
+- Latest releases: [GitHub Releases](https://github.com/aryannayak-real/ORIOUS/releases)
+- Repository: [github.com/aryannayak-real/ORIOUS](https://github.com/aryannayak-real/ORIOUS)
 
-## Icon packs
+## Building & Releasing
 
-ORIOUS supports compatible third-party icon packs. These community projects can help you customize the icons used for your entries.
+Requires JDK 17+ and Android SDK (API 36).
 
-- [aegis-icons](https://github.com/aegis-icons/aegis-icons) — Unofficial monochrome-styled 2FA icons.
-- [delta-aegis-icons](https://github.com/Delta-Icons/aegis-icons) — Delta version of the monochrome icon pack.
-- [aegis-simple-icons](https://github.com/alexbakker/aegis-simple-icons) — Icon pack generated from Simple Icons.
-- [aegis-simple-icons-outlined](https://github.com/michaelschattgen/aegis-simple-icons-outlined) — Outlined version of the Simple Icons pack.
+```bash
+# Run unit & Robolectric tests
+./gradlew testDebugUnitTest
 
-To learn how to create a compatible icon pack, see the [icon pack documentation](docs/iconpacks.md).
+# Run Android Lint checks
+./gradlew lintDebug
+
+# Build debug APK
+./gradlew assembleDebug
+
+# Build signed release APK (using environment secrets or GitHub Actions tag v*)
+./gradlew assembleRelease
+```
+
+### Publishing a GitHub Release
+
+1. Ensure `versionCode` and `versionName` in `app/build.gradle` and `app/src/main/assets/changelog.html` are updated.
+2. Verify CI secrets (`ORIOUS_KEYSTORE_BASE64`, `ORIOUS_STORE_PASSWORD`, `ORIOUS_KEY_ALIAS`, `ORIOUS_KEY_PASSWORD`) are configured in GitHub repository secrets.
+3. Push to `main` and push a version tag (for example `git tag v3.5.0 && git push origin v3.5.0`) to trigger `.github/workflows/build-app-workflow.yaml`.
+
+## Icon Packs
+
+ORIOUS supports compatible third-party icon packs:
+
+- [aegis-icons](https://github.com/aegis-icons/aegis-icons) — Monochrome-styled 2FA icons
+- [delta-aegis-icons](https://github.com/Delta-Icons/aegis-icons) — Delta monochrome icon pack
+- [aegis-simple-icons](https://github.com/alexbakker/aegis-simple-icons) — Simple Icons pack
+- [aegis-simple-icons-outlined](https://github.com/michaelschattgen/aegis-simple-icons-outlined) — Outlined Simple Icons pack
+
+See [docs/iconpacks.md](docs/iconpacks.md) to create custom icon packs.
 
 ## Contributing
 
-Contributions, translations, bug reports and pull requests are welcome.
-
-Please read the [contributing guidelines](CONTRIBUTING.md) before contributing.
+Contributions, translations, bug reports, and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before contributing.
 
 ## Credits
 
 ORIOUS is based on [Aegis Authenticator](https://github.com/beemdevelopment/Aegis).
 
-Original developers:
+Original upstream developers:
 - [Alexander Bakker](https://alexbakker.me)
 - [Michael Schättgen](https://github.com/michaelschattgen)
 
@@ -96,7 +122,6 @@ Original developers:
 
 This project is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) for details.
 
-Some vendored libraries have their own licenses:
-
+Vendored libraries with their own licenses:
 - [TextDrawable](app/src/main/java/com/amulyakhare/textdrawable)
 - [TrustedIntents](app/src/main/java/info/guardianproject/trustedintents)
